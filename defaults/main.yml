@@ -1,0 +1,56 @@
+# The "deploy user" as which containers will be run. Note,
+# you're still responsible for setting up Ansible connection details
+# to SSH to the server as this user.
+podman_user: ubuntu
+
+# Home directory of podman_user
+podman_user_home: "/home/{{ podman_user }}"
+
+# Directories to create
+podman_directories:
+  - "{{ podman_user_home }}/log/"
+  - "{{ podman_user_home }}/.config/systemd/user/"
+
+# Git repositories to build. For example:
+#
+# podman_build_repos:
+#   - repo: git@bitbucket.org:my_org/my_repo.git
+#     version: "{{ commit_sha | default(git_branch) }}"
+#     dest_dir: "{{ podman_user_home }}/my_repo"
+#     image_name: my_repo
+podman_build_repos: []
+
+# Set podman_pod_name to put all containers in a single pod
+# podman_pod_name: app
+
+# The Podman pods to create. Can be left empty if you don't want containers
+# to run in a Pod. For example:
+#
+# podman_pods:
+#   - name: "{{ podman_pod_name }}"
+#     publish:
+#       - 8000:8000
+podman_pods: []
+
+# The Podman containers to create. For example:
+#
+# podman_containers:
+#   - name: nginx
+#     image: docker.io/nginx
+#     tag: 1.24
+#     pod: "{{ podman_pod_name }}"
+#
+# Note that if podman_pod_name is set, the container will run in the named
+# pod even if not explicitly set above.
+podman_containers: []
+
+# If pod hostname is unset, default to inheriting the host's hostname
+podman_pod_inherit_hostname: no
+
+# Sometimes, when changing the pod network for example, it may be necessary to delete
+# the pod before recreating it to start with a clean slate. Toggle this to 'yes' if/when needed.
+podman_delete_before_create: no
+
+# Recreate pods and containers via the 'recreate' option to the podman_pod and
+# podman_container Ansible modules.
+podman_recreate: no

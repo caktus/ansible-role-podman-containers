@@ -1,0 +1,160 @@
+# Required so podman containers can start without the user logged in
+# https://github.com/systemd/systemd/issues/2690#issuecomment-186973083
+# https://github.com/systemd/systemd/issues/2690#issuecomment-186984952
+- name: Enable linger
+  command: "loginctl enable-linger {{ podman_user }}"
+  args:
+    creates: "/var/lib/systemd/linger/{{ podman_user }}"
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ podman_directories }}"
+
+- name: Checkout git repo(s)
+  ansible.builtin.git:
+    repo: "{{ item.repo }}"
+    dest: "{{ item.dest_dir }}"
+    version: "{{ item.version }}"
+    accept_newhostkey: yes
+  loop: "{{ podman_build_repos }}"
+  register: git_repo
+
+- name: Build Docker-formatted image(s) with Podman
+  containers.podman.podman_image:
+    name: "{{ item.0.image_name }}"
+    path: "{{ item.0.dest_dir }}"
+    build:
+      format: docker
+      # Allow application to be aware of the deployed code version
+      extra_args: "--build-arg PODMAN_COMMIT_SHA={{ item.1.after }}"
+    force: "{{ git_repo.changed }}"
+  loop: "{{ podman_build_repos | zip(git_repo.results) }}"
+  register: image_build
+
+# Prevent systemd from recreating pods before we recreate them, below
+- name: Stop systemd unit for pod(s)
+  ansible.builtin.systemd:
+    name: "pod-{{ item }}"
+    scope: user
+    state: stopped
+  loop: "{{ podman_pods | map(attribute='name') }}"
+  when: podman_delete_before_create
+  ignore_errors: true
+
+# Prevent systemd from recreating containers before we recreate them, below
+- name: Stop systemd unit for containers(s)
+  ansible.builtin.systemd:
+    name: "container-{{ item }}"
+    scope: user
+    state: stopped
+  loop: "{{ podman_containers | map(attribute='name') }}"
+  when: podman_delete_before_create
+  ignore_errors: true
+
+- name: Delete container(s)
+  containers.podman.podman_container:
+    pod: "{{ item.pod | default(podman_pod_name) | default(omit) }}"
+    name: "{{ item.name }}"
+    state: absent
+  loop: "{{ podman_containers }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: podman_delete_before_create
+  ignore_errors: true
+
+- name: Delete pod(s)
+  containers.podman.podman_pod:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ podman_pods | map(attribute='name') }}"
+  when: podman_delete_before_create
+  ignore_errors: true
+
+- name: Create pod(s)
+  containers.podman.podman_pod:
+    name: "{{ item.name }}"
+    state: "{{ item.state | default('created') }}"
+    recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
+    publish: "{{ item.publish | default(omit) }}"
+    network: "{{ item.network | default(omit) }}"
+    userns: "{{ item.userns | default(omit) }}"
+    hostname: "{{ item.hostname | default(podman_pod_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)) }}"
+  loop: "{{ podman_pods }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: pod
+
+- name: Create container(s)
+  containers.podman.podman_container:
+    # Create all (rootless) containers in the same pod so they can reach each other
+    # via localhost. See: https://www.redhat.com/sysadmin/container-networking-podman
+    pod: "{{ item.pod | default(podman_pod_name) | default(omit) }}"
+    name: "{{ item.name }}"
+    state: "{{ item.state | default('created') }}"
+    recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
+    image: "{{ item.image }}:{{ item.tag }}"
+    command: "{{ item.command | default(omit) }}"
+    volumes: "{{ item.volumes | default(omit) }}"
+    env: "{{ item.env | default(omit) }}"
+    log_driver: "{{ item.log_driver | default(podman_log_driver) | default(omit) }}"
+    log_opt: "{{ item.log_opt | default(podman_log_opt) | default(omit) }}"
+    user: "{{ item.user | default(omit) }}"
+    userns: "{{ item.userns | default(omit) }}"
+  loop: "{{ podman_containers }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: container
+
+- name: Create systemd unit file(s) for pod(s)
+  command:
+    # Run this command manually, rather than using generate_systemd in Ansible,
+    # because Ansible re-creates the Pod and does not set up the necessary dependencies
+    # between the Pod and its Containers. See:
+    # https://www.redhat.com/sysadmin/podman-run-pods-systemd-services
+    cmd: "podman generate systemd --new --files --name {{ item }}"
+    chdir: "{{ podman_user_home }}/.config/systemd/user/"
+  loop: "{{ podman_pods | map(attribute='name') }}"
+  when: pod.changed or container.changed
+
+- name: Create systemd unit file(s) for container(s)
+  command:
+    # Run this command manually for containers without pods, since we need
+    # to run it manually for pods.
+    cmd: "podman generate systemd --new --files --name {{ item.name }}"
+    chdir: "{{ podman_user_home }}/.config/systemd/user/"
+  loop: "{{ podman_containers }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: podman_pod_name is not defined and not item.pod and container.changed
+
+- name: Replace placeholder hostname with actual EC2 instance hostname
+  ansible.builtin.replace:
+    path: /home/{{ podman_user }}/.config/systemd/user/pod-{{ item }}.service
+    regexp: "PLACEHOLDER_HOSTNAME"
+    replace: '"%H"'
+  loop: "{{ podman_pods | map(attribute='name') }}"
+  when: podman_pod_inherit_hostname
+
+- name: Enable systemd unit for pod(s)
+  ansible.builtin.systemd:
+    name: "pod-{{ item }}"
+    scope: user
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ podman_pods | map(attribute='name') }}"
+
+- name: Enable systemd unit for containers(s)
+  ansible.builtin.systemd:
+    name: "container-{{ item.name }}"
+    scope: user
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ podman_containers }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: podman_pod_name is not defined and not item.pod
