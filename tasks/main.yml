@@ -78,6 +78,7 @@
     path: "{{ item.0.dest_dir }}"
     build:
       format: docker
+      # Allow application to be aware of the deployed code version
       extra_args: "--build-arg PODMAN_COMMIT_SHA={{ item.1.after }}"
     force: "{{ git_repo.changed }}"
   loop: "{{ podman_build_repos | zip(git_repo.results) }}"
