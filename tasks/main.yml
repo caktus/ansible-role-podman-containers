@@ -285,14 +285,14 @@
   ansible.builtin.systemd:
     scope: user
     daemon_reload: true
-  when: podman_use_quadlets or network.changed or pod.changed or container.changed or (quadlet_cleanup is defined and quadlet_cleanup.changed)
+  when: network.changed or pod.changed or container.changed or (quadlet_cleanup is defined and quadlet_cleanup.changed) or (env_files is defined and env_files.changed)
 
 - name: Enable and start pod service(s)
   ansible.builtin.systemd:
-    name: "{{ podman_use_quadlets | ternary(item.name ~ '-pod.service', 'pod-' ~ item.name) }}"
+    name: "{{ podman_use_quadlets | ternary(item.systemd_unit | default(item.name ~ '-pod.service'), 'pod-' ~ item.name) }}"
     scope: user
     enabled: true
-    state: "{{ (pod.changed or container.changed) | ternary('restarted', 'started') }}"
+    state: "{{ (pod.changed or container.changed or (env_files is defined and env_files.changed)) | ternary('restarted', 'started') }}"
   loop: "{{ podman_pods }}"
   loop_control:
     label: "{{ item.name }}"
@@ -303,7 +303,7 @@
     name: "{{ podman_use_quadlets | ternary(item.name ~ '.service', 'container-' ~ item.name) }}"
     scope: user
     enabled: true
-    state: "{{ container.changed | ternary('restarted', 'started') }}"
+    state: "{{ (container.changed or (env_files is defined and env_files.changed)) | ternary('restarted', 'started') }}"
   loop: "{{ podman_containers }}"
   loop_control:
     label: "{{ item.name }}"
