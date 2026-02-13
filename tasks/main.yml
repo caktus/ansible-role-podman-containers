@@ -44,7 +44,7 @@
   ansible.builtin.file:
     path: "{{ podman_env_file_dir }}/{{ item.name }}.env"
     state: absent
-  loop: "{{ podman_containers | selectattr('env', 'defined') | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') | list }}"
+  loop: "{{ podman_containers | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') | list }}"
   loop_control:
     label: "{{ item.name }}"
   when: podman_use_env_files
