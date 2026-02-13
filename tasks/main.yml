@@ -40,7 +40,12 @@
     mode: "0600"
     owner: "{{ podman_user }}"
     group: "{{ podman_user }}"
-  loop: "{{ podman_containers | selectattr('env', 'defined') | rejectattr('state', 'equalto', 'absent') }}"
+  # Loop through all the containers with an "env" defined and either (a) NO state or (b) a state other than "absent"
+  loop: >
+    {{
+      (podman_containers | selectattr('env', 'defined') | rejectattr('state', 'defined') | list) +
+      (podman_containers | selectattr('env', 'defined') | selectattr('state', 'defined') | rejectattr('state', 'equalto', 'absent') | list)
+    }}
   loop_control:
     label: "{{ item.name }}"
   when: podman_use_env_files
@@ -207,7 +212,7 @@
     entrypoint: "{{ item.entrypoint | default(omit) }}"
     workdir: "{{ item.workdir | default(omit) }}"
     volumes: "{{ item.volumes | default(omit) }}"
-    env: "{{ (podman_use_env_files and item.env is defined) | ternary(omit, item.env | default(omit)) }}"
+    env: "{{ (podman_use_env_files and item.env is defined) | ternary({'ENV_FILE_CHECKSUM': (item.env | to_json | hash('sha256'))[:16]}, item.env | default(omit)) }}"
     env_file: "{{ (podman_use_env_files and item.env is defined) | ternary([podman_env_file_dir ~ '/' ~ item.name ~ '.env'] + (item.env_file is defined | ternary((item.env_file is string) | ternary([item.env_file], item.env_file), [])), item.env_file | default(omit)) }}"
     log_driver: "{{ item.log_driver | default(podman_log_driver) | default(omit) }}"
     log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"
@@ -303,7 +308,8 @@
     name: "{{ podman_use_quadlets | ternary(item.name ~ '.service', 'container-' ~ item.name) }}"
     scope: user
     enabled: true
-    state: "{{ (container.changed or (env_files is defined and env_files.changed)) | ternary('restarted', 'started') }}"
+    state: "{{ container.changed | ternary('restarted', 'started') }}"
+    # state: "{{ (container.changed or (env_files.results | default([]) | selectattr('item.name', 'equalto', item.name) | map(attribute='changed') | first | default(false))) | ternary('restarted', 'started') }}"
   loop: "{{ podman_containers }}"
   loop_control:
     label: "{{ item.name }}"
