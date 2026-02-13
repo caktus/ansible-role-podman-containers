@@ -1,6 +1,5 @@
 # Required so podman containers can start without the user logged in
-# https://github.com/systemd/systemd/issues/2690#issuecomment-186973083
-# https://github.com/systemd/systemd/issues/2690#issuecomment-186984952
+# https://github.com/systemd/systemd/issues/2690
 - name: Enable linger
   command: "loginctl enable-linger {{ podman_user }}"
   args:
@@ -13,6 +12,57 @@
     mode: "0755"
   loop: "{{ podman_directories }}"
 
+- name: Create quadlet directory
+  ansible.builtin.file:
+    path: "{{ podman_quadlet_dir }}"
+    state: directory
+    mode: "0755"
+  when: podman_use_quadlets
+
+- name: Create env file directory
+  ansible.builtin.file:
+    path: "{{ podman_env_file_dir }}"
+    state: directory
+    mode: "0700"
+  when: podman_use_env_files
+
+- name: Write container environment files
+  ansible.builtin.copy:
+    content: |
+      {% for key, value in item.env.items() %}
+      {{ key }}={{ value }}
+      {% endfor %}
+    dest: "{{ podman_env_file_dir }}/{{ item.name }}.env"
+    mode: "0600"
+  loop: "{{ podman_containers | selectattr('env', 'defined') | rejectattr('state', 'defined') | list + podman_containers | selectattr('env', 'defined') | selectattr('state', 'defined') | rejectattr('state', 'eq', 'absent') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: podman_use_env_files
+  register: env_files
+
+- name: Create network(s)
+  containers.podman.podman_network:
+    name: "{{ item.name }}"
+    state: "{{ ((item.state | default('')) == 'absent') | ternary('absent', podman_use_quadlets | ternary('quadlet', item.state | default('present'))) }}"
+    driver: "{{ item.driver | default(omit) }}"
+    subnet: "{{ item.subnet | default(omit) }}"
+    gateway: "{{ item.gateway | default(omit) }}"
+    ip_range: "{{ item.ip_range | default(omit) }}"
+    ipv6: "{{ item.ipv6 | default(omit) }}"
+    internal: "{{ item.internal | default(omit) }}"
+    dns: "{{ item.dns | default(omit) }}"
+    disable_dns: "{{ item.disable_dns | default(omit) }}"
+    opt: "{{ item.opt | default(omit) }}"
+    interface_name: "{{ item.interface_name | default(omit) }}"
+    route: "{{ item.route | default(omit) }}"
+    macvlan: "{{ item.macvlan | default(omit) }}"
+    quadlet_dir: "{{ podman_use_quadlets | ternary(podman_quadlet_dir, omit) }}"
+    quadlet_options: "{{ item.quadlet_options | default(omit) }}"
+  loop: "{{ podman_networks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: network
+
 - name: Checkout git repo(s)
   ansible.builtin.git:
     repo: "{{ item.repo }}"
@@ -22,141 +72,216 @@
   loop: "{{ podman_build_repos }}"
   register: git_repo
 
-- name: Build Docker-formatted image(s) with Podman
+- name: Build image(s) with Podman
   containers.podman.podman_image:
     name: "{{ item.0.image_name }}"
     path: "{{ item.0.dest_dir }}"
     build:
       format: docker
-      # Allow application to be aware of the deployed code version
       extra_args: "--build-arg PODMAN_COMMIT_SHA={{ item.1.after }}"
     force: "{{ git_repo.changed }}"
   loop: "{{ podman_build_repos | zip(git_repo.results) }}"
   register: image_build
 
-# Prevent systemd from recreating pods before we recreate them, below
-- name: Stop systemd unit for pod(s)
-  ansible.builtin.systemd:
-    name: "pod-{{ item }}"
-    scope: user
-    state: stopped
-  loop: "{{ podman_pods | map(attribute='name') }}"
-  when: podman_delete_before_create
-  ignore_errors: true
+### Legacy mode: delete before create ###
+- name: Stop and delete pods/containers (legacy delete_before_create)
+  when: not podman_use_quadlets and podman_delete_before_create
+  block:
+    - name: Stop systemd unit for pod(s)
+      ansible.builtin.systemd:
+        name: "pod-{{ item }}"
+        scope: user
+        state: stopped
+      loop: "{{ podman_pods | map(attribute='name') }}"
+      ignore_errors: true
 
-# Prevent systemd from recreating containers before we recreate them, below
-- name: Stop systemd unit for containers(s)
-  ansible.builtin.systemd:
-    name: "container-{{ item }}"
-    scope: user
-    state: stopped
-  loop: "{{ podman_containers | map(attribute='name') }}"
-  when: podman_delete_before_create
-  ignore_errors: true
+    - name: Stop systemd unit for container(s)
+      ansible.builtin.systemd:
+        name: "container-{{ item }}"
+        scope: user
+        state: stopped
+      loop: "{{ podman_containers | map(attribute='name') }}"
+      ignore_errors: true
 
-- name: Delete container(s)
-  containers.podman.podman_container:
-    pod: "{{ item.pod | default(podman_pod_name) | default(omit) }}"
-    name: "{{ item.name }}"
-    state: absent
-  loop: "{{ podman_containers }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when: podman_delete_before_create
-  ignore_errors: true
+    - name: Delete container(s)
+      containers.podman.podman_container:
+        pod: "{{ item.pod | default(podman_pod_name) | default(omit) }}"
+        name: "{{ item.name }}"
+        state: absent
+      loop: "{{ podman_containers }}"
+      loop_control:
+        label: "{{ item.name }}"
+      ignore_errors: true
 
-- name: Delete pod(s)
-  containers.podman.podman_pod:
-    name: "{{ item }}"
-    state: absent
-  loop: "{{ podman_pods | map(attribute='name') }}"
-  when: podman_delete_before_create
-  ignore_errors: true
+    - name: Delete pod(s)
+      containers.podman.podman_pod:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ podman_pods | map(attribute='name') }}"
+      ignore_errors: true
 
 - name: Create pod(s)
   containers.podman.podman_pod:
     name: "{{ item.name }}"
-    state: "{{ item.state | default('created') }}"
+    state: "{{ ((item.state | default('')) == 'absent') | ternary('absent', podman_use_quadlets | ternary('quadlet', item.state | default('created'))) }}"
     recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
     publish: "{{ item.publish | default(omit) }}"
     network: "{{ item.network | default(omit) }}"
     userns: "{{ item.userns | default(omit) }}"
     hostname: "{{ item.hostname | default(podman_pod_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)) }}"
+    cpus: "{{ item.cpus | default(omit) }}"
+    memory: "{{ item.memory | default(omit) }}"
+    dns: "{{ item.dns | default(omit) }}"
+    dns_search: "{{ item.dns_search | default(omit) }}"
+    share: "{{ item.share | default(omit) }}"
+    pid: "{{ item.pid | default(omit) }}"
+    infra: "{{ item.infra | default(omit) }}"
+    infra_image: "{{ item.infra_image | default(omit) }}"
+    infra_name: "{{ item.infra_name | default(omit) }}"
+    volume: "{{ item.volume | default(omit) }}"
+    label: "{{ item.label | default(omit) }}"
+    security_opt: "{{ item.security_opt | default(omit) }}"
+    quadlet_dir: "{{ podman_use_quadlets | ternary(podman_quadlet_dir, omit) }}"
+    quadlet_options: "{{ item.quadlet_options | default(omit) }}"
   loop: "{{ podman_pods }}"
   loop_control:
     label: "{{ item.name }}"
   register: pod
 
+### Quadlet cleanup for containers with state: absent ###
+- name: Remove containers with state absent (quadlet mode)
+  when: podman_use_quadlets
+  block:
+    - name: Stop container service(s) being removed
+      ansible.builtin.systemd:
+        name: "{{ item.name }}.service"
+        scope: user
+        state: stopped
+      loop: "{{ podman_containers | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') }}"
+      loop_control:
+        label: "{{ item.name }}"
+      ignore_errors: true
+
+    - name: Remove quadlet file(s) for containers being removed
+      ansible.builtin.file:
+        path: "{{ podman_quadlet_dir }}/{{ item.name }}.container"
+        state: absent
+      loop: "{{ podman_containers | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: quadlet_cleanup
+
 - name: Create container(s)
   containers.podman.podman_container:
-    # Create all (rootless) containers in the same pod so they can reach each other
-    # via localhost. See: https://www.redhat.com/sysadmin/container-networking-podman
     pod: "{{ item.pod | default(podman_pod_name) | default(omit) }}"
     name: "{{ item.name }}"
-    state: "{{ item.state | default('created') }}"
+    state: "{{ ((item.state | default('')) == 'absent') | ternary('absent', podman_use_quadlets | ternary('quadlet', item.state | default('created'))) }}"
     recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
     image: "{{ item.image }}:{{ item.tag }}"
     pull: "{{ item.pull | default(omit) }}"
     init: "{{ item.init | default(omit) }}"
     command: "{{ item.command | default(omit) }}"
+    entrypoint: "{{ item.entrypoint | default(omit) }}"
+    workdir: "{{ item.workdir | default(omit) }}"
     volumes: "{{ item.volumes | default(omit) }}"
-    env: "{{ item.env | default(omit) }}"
+    env: "{{ (podman_use_env_files and item.env is defined) | ternary(omit, item.env | default(omit)) }}"
+    env_file: "{{ (podman_use_env_files and item.env is defined) | ternary(podman_env_file_dir ~ '/' ~ item.name ~ '.env', item.env_file | default(omit)) }}"
     log_driver: "{{ item.log_driver | default(podman_log_driver) | default(omit) }}"
-    log_opt: "{{ item.log_opt | default(podman_log_opt) | default(omit) }}"
+    log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"
     user: "{{ item.user | default(omit) }}"
     userns: "{{ item.userns | default(omit) }}"
+    hostname: "{{ item.hostname | default(omit) }}"
+    # In quadlet mode, reference .network files to create systemd dependencies
+    network: "{{ (podman_use_quadlets and item.network is defined) | ternary(item.network | map('regex_replace', '^(.*)$', '\\1.network') | list, item.network | default(omit)) }}"
+    publish: "{{ item.publish | default(omit) }}"
+    expose: "{{ item.expose | default(omit) }}"
+    dns: "{{ item.dns | default(omit) }}"
+    dns_search: "{{ item.dns_search | default(omit) }}"
+    cpus: "{{ item.cpus | default(omit) }}"
+    memory: "{{ item.memory | default(omit) }}"
+    memory_swap: "{{ item.memory_swap | default(omit) }}"
+    pids_limit: "{{ item.pids_limit | default(omit) }}"
+    healthcheck: "{{ item.healthcheck | default(omit) }}"
+    healthcheck_interval: "{{ item.healthcheck_interval | default(omit) }}"
+    healthcheck_timeout: "{{ item.healthcheck_timeout | default(omit) }}"
+    healthcheck_retries: "{{ item.healthcheck_retries | default(omit) }}"
+    healthcheck_start_period: "{{ item.healthcheck_start_period | default(omit) }}"
+    privileged: "{{ item.privileged | default(omit) }}"
+    cap_add: "{{ item.cap_add | default(omit) }}"
+    cap_drop: "{{ item.cap_drop | default(omit) }}"
+    security_opt: "{{ item.security_opt | default(omit) }}"
+    read_only: "{{ item.read_only | default(omit) }}"
+    label: "{{ item.label | default(omit) }}"
+    secrets: "{{ item.secrets | default(omit) }}"
+    restart_policy: "{{ item.restart_policy | default(omit) }}"
+    rm: "{{ item.rm | default(omit) }}"
+    stop_signal: "{{ item.stop_signal | default(omit) }}"
+    stop_timeout: "{{ item.stop_timeout | default(omit) }}"
+    tty: "{{ item.tty | default(omit) }}"
+    interactive: "{{ item.interactive | default(omit) }}"
+    tmpfs: "{{ item.tmpfs | default(omit) }}"
+    mount: "{{ item.mount | default(omit) }}"
+    device: "{{ item.device | default(omit) }}"
+    quadlet_dir: "{{ podman_use_quadlets | ternary(podman_quadlet_dir, omit) }}"
+    quadlet_options: "{{ item.quadlet_options | default(omit) }}"
   loop: "{{ podman_containers }}"
   loop_control:
     label: "{{ item.name }}"
   register: container
 
-- name: Create systemd unit file(s) for pod(s)
-  command:
-    # Run this command manually, rather than using generate_systemd in Ansible,
-    # because Ansible re-creates the Pod and does not set up the necessary dependencies
-    # between the Pod and its Containers. See:
-    # https://www.redhat.com/sysadmin/podman-run-pods-systemd-services
-    cmd: "podman generate systemd --new --files --name {{ item }}"
-    chdir: "{{ podman_user_home }}/.config/systemd/user/"
-  loop: "{{ podman_pods | map(attribute='name') }}"
-  when: pod.changed or container.changed
+### Legacy systemd unit generation ###
+- name: Generate systemd units (legacy mode)
+  when: not podman_use_quadlets
+  block:
+    - name: Create systemd unit file(s) for pod(s)
+      command:
+        cmd: "podman generate systemd --new --files --name {{ item }}"
+        chdir: "{{ podman_user_home }}/.config/systemd/user/"
+      loop: "{{ podman_pods | map(attribute='name') }}"
+      when: pod.changed or container.changed
 
-- name: Create systemd unit file(s) for container(s)
-  command:
-    # Run this command manually for containers without pods, since we need
-    # to run it manually for pods.
-    cmd: "podman generate systemd --new --files --name {{ item.name }}"
-    chdir: "{{ podman_user_home }}/.config/systemd/user/"
+    - name: Create systemd unit file(s) for container(s)
+      command:
+        cmd: "podman generate systemd --new --files --name {{ item.name }}"
+        chdir: "{{ podman_user_home }}/.config/systemd/user/"
+      loop: "{{ podman_containers }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: podman_pod_name is not defined and not item.pod | default(false) and container.changed
+
+    - name: Replace placeholder hostname in pod units
+      ansible.builtin.replace:
+        path: "{{ podman_user_home }}/.config/systemd/user/pod-{{ item }}.service"
+        regexp: "PLACEHOLDER_HOSTNAME"
+        replace: '"%H"'
+      loop: "{{ podman_pods | map(attribute='name') }}"
+      when: podman_pod_inherit_hostname
+
+### Enable and start services ###
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    scope: user
+    daemon_reload: true
+  when: podman_use_quadlets or network.changed or pod.changed or container.changed or (quadlet_cleanup is defined and quadlet_cleanup.changed)
+
+- name: Enable and start pod service(s)
+  ansible.builtin.systemd:
+    name: "{{ podman_use_quadlets | ternary(item.name ~ '-pod.service', 'pod-' ~ item.name) }}"
+    scope: user
+    enabled: true
+    state: "{{ (pod.changed or container.changed) | ternary('restarted', 'started') }}"
+  loop: "{{ podman_pods }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: (item.state | default('')) != 'absent'
+
+- name: Enable and start container service(s)
+  ansible.builtin.systemd:
+    name: "{{ podman_use_quadlets | ternary(item.name ~ '.service', 'container-' ~ item.name) }}"
+    scope: user
+    enabled: true
+    state: "{{ container.changed | ternary('restarted', 'started') }}"
   loop: "{{ podman_containers }}"
   loop_control:
     label: "{{ item.name }}"
-  when: podman_pod_name is not defined and not item.pod and container.changed
-
-- name: Replace placeholder hostname with actual EC2 instance hostname
-  ansible.builtin.replace:
-    path: /home/{{ podman_user }}/.config/systemd/user/pod-{{ item }}.service
-    regexp: "PLACEHOLDER_HOSTNAME"
-    replace: '"%H"'
-  loop: "{{ podman_pods | map(attribute='name') }}"
-  when: podman_pod_inherit_hostname
-
-- name: Enable systemd unit for pod(s)
-  ansible.builtin.systemd:
-    name: "pod-{{ item }}"
-    scope: user
-    enabled: true
-    state: started
-    daemon_reload: true
-  loop: "{{ podman_pods | map(attribute='name') }}"
-
-- name: Enable systemd unit for containers(s)
-  ansible.builtin.systemd:
-    name: "container-{{ item.name }}"
-    scope: user
-    enabled: true
-    state: started
-    daemon_reload: true
-  loop: "{{ podman_containers }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when: podman_pod_name is not defined and not item.pod
+  when: (item.state | default('')) != 'absent' and (podman_use_quadlets or (podman_pod_name is not defined and not item.pod | default(false)))

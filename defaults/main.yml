@@ -6,7 +6,8 @@ podman_user: ubuntu
 # Home directory of podman_user
 podman_user_home: "/home/{{ podman_user }}"
 
-# Directories to create
+# Directories to create. The role automatically adds the quadlet directory
+# when podman_use_quadlets is enabled.
 podman_directories:
   - "{{ podman_user_home }}/log/"
   - "{{ podman_user_home }}/.config/systemd/user/"
@@ -20,37 +21,69 @@ podman_directories:
 #     image_name: my_repo
 podman_build_repos: []
 
-# Set podman_pod_name to put all containers in a single pod
+# DEPRECATED: podman_pod_name may be removed in a future version.
+# Use podman_networks with podman_use_quadlets: yes instead.
 # podman_pod_name: app
 
-# The Podman pods to create. Can be left empty if you don't want containers
-# to run in a Pod. For example:
-#
-# podman_pods:
-#   - name: "{{ podman_pod_name }}"
-#     publish:
-#       - 8000:8000
+# Set podman_network_name and use it in container definitions for network-based setup.
+# Networks allow independent container management (recommended over pods for most cases
+# other than true sidecar containers that should be stopped and started with the main
+# container).
+# podman_network_name: app
+
+# Podman pods to create. Containers in a pod share a network namespace
+# and are started/stopped together.
+# See: https://docs.ansible.com/ansible/latest/collections/containers/podman/podman_pod_module.html
 podman_pods: []
 
-# The Podman containers to create. For example:
+# Podman containers to create.
+# See: https://docs.ansible.com/ansible/latest/collections/containers/podman/podman_container_module.html
 #
+# Example (network-based):
 # podman_containers:
-#   - name: nginx
-#     image: docker.io/nginx
-#     tag: 1.24
-#     pod: "{{ podman_pod_name }}"
-#
-# Note that if podman_pod_name is set, the container will run in the named
-# pod even if not explicitly set above.
+#   - name: redis
+#     image: docker.io/redis
+#     tag: latest
+#     network: ["{{ podman_network_name }}"]
+#   - name: web
+#     image: localhost/myapp
+#     tag: latest
+#     network: ["{{ podman_network_name }}"]
+#     env:
+#       REDIS_URL: "redis://redis:6379/0"
 podman_containers: []
 
 # If pod hostname is unset, default to inheriting the host's hostname
 podman_pod_inherit_hostname: no
 
-# Sometimes, when changing the pod network for example, it may be necessary to delete
-# the pod before recreating it to start with a clean slate. Toggle this to 'yes' if/when needed.
+# Delete pods/containers before recreating. Use when changing network config.
 podman_delete_before_create: no
 
-# Recreate pods and containers via the 'recreate' option to the podman_pod and
-# podman_container Ansible modules.
+# Always recreate pods and containers on deploy
 podman_recreate: no
+
+# Default log driver for containers (legacy mode only)
+# podman_log_driver: k8s-file
+
+# Default log options for containers (legacy mode only)
+# podman_log_opt:
+#   path: "{{ podman_user_home }}/log/{{ item.name }}.log"
+
+# Podman networks to create. Containers on a shared network communicate by name.
+# See: https://docs.ansible.com/ansible/latest/collections/containers/podman/podman_network_module.html
+podman_networks: []
+
+# Use Quadlets (Podman 4.4+) instead of `podman generate systemd`.
+# Recommended for new deployments. May become the default in a future version.
+# See: https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html
+podman_use_quadlets: no
+
+# Directory for quadlet files
+podman_quadlet_dir: "{{ podman_user_home }}/.config/containers/systemd/"
+
+# Write env vars to files (mode 0600) instead of embedding in unit files.
+# Keeps secrets out of `ps` output and systemd units.
+podman_use_env_files: yes
+
+# Directory for environment files
+podman_env_file_dir: "{{ podman_user_home }}/env/"
