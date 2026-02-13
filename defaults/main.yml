@@ -6,8 +6,8 @@ podman_user: ubuntu
 # Home directory of podman_user
 podman_user_home: "/home/{{ podman_user }}"
 
-# Directories to create. The role automatically adds the quadlet directory
-# when podman_use_quadlets is enabled.
+# Directories to create for the podman_user. The quadlet directory
+# (podman_quadlet_dir) is created separately when podman_use_quadlets is enabled.
 podman_directories:
   - "{{ podman_user_home }}/log/"
   - "{{ podman_user_home }}/.config/systemd/user/"

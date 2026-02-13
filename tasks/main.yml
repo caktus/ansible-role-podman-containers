@@ -16,6 +16,8 @@
   ansible.builtin.file:
     path: "{{ podman_quadlet_dir }}"
     state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
     mode: "0755"
   when: podman_use_quadlets
 
@@ -32,13 +34,13 @@
   ansible.builtin.copy:
     content: |
       {% for key, value in item.env.items() %}
-      {{ key }}={{ value }}
+      {{ key }}={{ value | string | regex_replace('\n', '\\n') | quote }}
       {% endfor %}
     dest: "{{ podman_env_file_dir }}/{{ item.name }}.env"
     mode: "0600"
     owner: "{{ podman_user }}"
     group: "{{ podman_user }}"
-  loop: "{{ podman_containers | selectattr('env', 'defined') | rejectattr('state', 'defined') | list + podman_containers | selectattr('env', 'defined') | selectattr('state', 'defined') | rejectattr('state', 'eq', 'absent') | list }}"
+  loop: "{{ podman_containers | selectattr('env', 'defined') | rejectattr('state', 'equalto', 'absent') }}"
   loop_control:
     label: "{{ item.name }}"
   when: podman_use_env_files
@@ -98,6 +100,13 @@
   register: image_build
 
 ### Legacy mode: delete before create ###
+- name: Warn that delete_before_create is not supported with quadlets
+  ansible.builtin.debug:
+    msg: >-
+      The "podman_delete_before_create" option is not supported when
+      "podman_use_quadlets" is true. Please manually remove quadlet unit
+      files and re-run the play when changing networks in quadlet mode.
+  when: podman_use_quadlets and podman_delete_before_create
 - name: Stop and delete pods/containers (legacy delete_before_create)
   when: not podman_use_quadlets and podman_delete_before_create
   block:
@@ -199,7 +208,7 @@
     workdir: "{{ item.workdir | default(omit) }}"
     volumes: "{{ item.volumes | default(omit) }}"
     env: "{{ (podman_use_env_files and item.env is defined) | ternary(omit, item.env | default(omit)) }}"
-    env_file: "{{ (podman_use_env_files and item.env is defined) | ternary(podman_env_file_dir ~ '/' ~ item.name ~ '.env', item.env_file | default(omit)) }}"
+    env_file: "{{ (podman_use_env_files and item.env is defined) | ternary([podman_env_file_dir ~ '/' ~ item.name ~ '.env'] + (item.env_file is defined | ternary((item.env_file is string) | ternary([item.env_file], item.env_file), [])), item.env_file | default(omit)) }}"
     log_driver: "{{ item.log_driver | default(podman_log_driver) | default(omit) }}"
     log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"
     user: "{{ item.user | default(omit) }}"
