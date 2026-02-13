@@ -40,6 +40,15 @@
   when: podman_use_env_files
   register: env_files
 
+- name: Remove env files for absent containers
+  ansible.builtin.file:
+    path: "{{ podman_env_file_dir }}/{{ item.name }}.env"
+    state: absent
+  loop: "{{ podman_containers | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: podman_use_env_files
+
 - name: Create network(s)
   containers.podman.podman_network:
     name: "{{ item.name }}"
