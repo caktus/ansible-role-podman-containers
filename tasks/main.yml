@@ -24,6 +24,8 @@
     path: "{{ podman_env_file_dir }}"
     state: directory
     mode: "0700"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
   when: podman_use_env_files
 
 - name: Write container environment files
@@ -34,6 +36,8 @@
       {% endfor %}
     dest: "{{ podman_env_file_dir }}/{{ item.name }}.env"
     mode: "0600"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
   loop: "{{ podman_containers | selectattr('env', 'defined') | rejectattr('state', 'defined') | list + podman_containers | selectattr('env', 'defined') | selectattr('state', 'defined') | rejectattr('state', 'eq', 'absent') | list }}"
   loop_control:
     label: "{{ item.name }}"
