@@ -83,6 +83,10 @@ podman_quadlet_dir: "{{ podman_user_home }}/.config/containers/systemd/"
 
 # Write env vars to files (mode 0600) instead of embedding in unit files.
 # Keeps secrets out of `ps` output and systemd units.
+# Note: This is the default behavior in current versions. Earlier versions
+# embedded environment variables directly in systemd units. To preserve the
+# legacy behavior when upgrading, explicitly set `podman_use_env_files: no`
+# in your inventory or playbook.
 podman_use_env_files: yes
 
 # Directory for environment files
