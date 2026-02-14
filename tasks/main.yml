@@ -6,16 +6,13 @@
     creates: "/var/lib/systemd/linger/{{ podman_user }}"
 
 - name: Warn about deprecated podman_pod_name
-  ansible.builtin.fail:
+  ansible.builtin.debug:
     msg: |
       *** WARNING: podman_pod_name is DEPRECATED ***
       The podman_pod_name variable no longer automatically assigns containers to pods.
       To put containers in a pod, explicitly set 'pod: pod_name' on each container.
       For network-based setups, use podman_networks with podman_use_quadlets: yes instead.
       See the README for migration examples.
-
-      This is a warning only - execution will continue.
-  ignore_errors: yes
   when: podman_pod_name is defined and not podman_use_quadlets
 
 - name: Create directories
@@ -190,7 +187,7 @@
 - name: Create pod(s)
   containers.podman.podman_pod:
     name: "{{ item.name }}"
-    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
+    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', 'created')) }}"
     recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
     publish: "{{ item.publish | default(omit) }}"
     network: >-
@@ -206,7 +203,16 @@
         {{ omit }}
       {%- endif -%}
     userns: "{{ item.userns | default(omit) }}"
-    hostname: "{{ item.hostname | default(podman_pod_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)) }}"
+    hostname: >-
+      {{ item.hostname
+         | default(
+             (podman_use_quadlets | bool)
+               | ternary(
+                   omit,
+                   podman_pod_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)
+               )
+           )
+      }}
     cpus: "{{ item.cpus | default(omit) }}"
     memory: "{{ item.memory | default(omit) }}"
     dns: "{{ item.dns | default(omit) }}"
@@ -241,7 +247,7 @@
         {{ omit }}
       {%- endif -%}
     name: "{{ item.name }}"
-    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
+    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', 'created')) }}"
     recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
     image: "{{ item.image }}:{{ item.tag }}"
     pull: "{{ item.pull | default(omit) }}"
@@ -250,7 +256,14 @@
     entrypoint: "{{ item.entrypoint | default(omit) }}"
     workdir: "{{ item.workdir | default(omit) }}"
     volumes: "{{ item.volumes | default(omit) }}"
-    env: "{{ podman_use_env_files | ternary({'ENV_FILE_CHECKSUM': (item.env | default({}) | to_json | hash('sha256'))[:16]}, item.env | default(omit)) }}"
+    env: >-
+      {%- if podman_use_env_files and item.env is defined -%}
+        {{ {'ENV_FILE_CHECKSUM': (item.env | to_json | hash('sha256'))[:16]} }}
+      {%- elif item.env is defined -%}
+        {{ item.env }}
+      {%- else -%}
+        {{ omit }}
+      {%- endif -%}
     env_file: "{{ item.env_file | default((podman_use_env_files and item.env is defined) | ternary([podman_env_file_dir ~ '/' ~ item.name ~ '.env'], omit)) }}"
     log_driver: "{{ item.log_driver | default(podman_log_driver) | default(omit) }}"
     log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"

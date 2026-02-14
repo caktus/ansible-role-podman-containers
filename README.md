@@ -108,6 +108,7 @@ uv sync --python 3.13
 uv run molecule test -s build-image
 uv run molecule test -s legacy-pod
 uv run molecule test -s quadlet
+uv run molecule test -s quadlet-default-network
 uv run molecule test -s quadlet-pod
 
 # Or run individual steps for a scenario
@@ -119,11 +120,12 @@ uv run molecule destroy -s quadlet   # Tear down
 
 ### Test Scenarios
 
-| Scenario      | Mode    | What it tests                                                                       |
-| ------------- | ------- | ----------------------------------------------------------------------------------- |
-| `build-image` | N/A     | Builds the systemd-enabled test container image                                     |
-| `legacy-pod`  | Legacy  | Pod with multiple containers, `podman generate systemd`                             |
-| `quadlet`     | Quadlet | Standalone containers on a shared network, `.container`/`.network` files, env files |
-| `quadlet-pod` | Quadlet | Pod + standalone containers coexisting, `.pod`/`.container`/`.network` files        |
+| Scenario                  | Mode    | What it tests                                                                       |
+| ------------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `build-image`             | N/A     | Builds the systemd-enabled test container image                                     |
+| `legacy-pod`              | Legacy  | Pod with multiple containers, `podman generate systemd`                             |
+| `quadlet`                 | Quadlet | Standalone containers on a shared network, `.container`/`.network` files, env files |
+| `quadlet-default-network` | Quadlet | Pods and containers using `podman_default_network` with `.network` suffix           |
+| `quadlet-pod`             | Quadlet | Pod + standalone containers coexisting, `.pod`/`.container`/`.network` files        |
 
 All scenarios use a custom `molecule/Dockerfile.j2` that builds a systemd-enabled Ubuntu 25.10 image with podman 5.4 (required for `.pod` quadlet support).
