@@ -1,38 +1,10 @@
 ---
-- name: Prepare
-  hosts: localhost
-  gather_facts: false
-
-  tasks:
-    - name: Wait 5 seconds for container to stabilize
-      ansible.builtin.pause:
-        seconds: 5
-
-    - name: Check container status
-      ansible.builtin.shell: podman ps -a --filter name=instance
-      register: container_state
-      changed_when: false
-
-    - name: Show container state
-      ansible.builtin.debug:
-        msg: "Container state: {{ container_state.stdout }}"
-
-    - name: Show container logs
-      ansible.builtin.shell: podman logs instance 2>&1 | tail -50
-      register: container_logs
-      changed_when: false
-      ignore_errors: true
-
-    - name: Debug container logs
-      ansible.builtin.debug:
-        msg: "Container logs:\n{{ container_logs.stdout }}"
-
 - name: Prepare instance
   hosts: all
   gather_facts: false
 
   tasks:
-    - name: Wait for container to be ready (with extended timeout)
+    - name: Wait for container to be ready
       ansible.builtin.wait_for_connection:
         delay: 2
         timeout: 60

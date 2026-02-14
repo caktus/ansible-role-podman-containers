@@ -9,6 +9,7 @@ platforms:
     image: docker.io/library/ubuntu:questing
     dockerfile: ../Dockerfile.j2
     command: ""
+    init: true
     pre_build_image: false
     privileged: true
 
