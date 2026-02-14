@@ -40,7 +40,7 @@
           - "'ContainerName=frontend' in frontend_quadlet.content | b64decode"
           - "'Image=docker.io/traefik/whoami:latest' in frontend_quadlet.content | b64decode"
           - "'PublishPort=8080:80' in frontend_quadlet.content | b64decode"
-          - "'Network=appnet' in frontend_quadlet.content | b64decode"
+          - "'Network=appnet.network' in frontend_quadlet.content | b64decode"
         fail_msg: "frontend.container quadlet content is incorrect."
 
     - name: Read backend.container quadlet file
@@ -53,7 +53,7 @@
         that:
           - "'ContainerName=backend' in backend_quadlet.content | b64decode"
           - "'Image=docker.io/traefik/whoami:latest' in backend_quadlet.content | b64decode"
-          - "'Network=appnet' in backend_quadlet.content | b64decode"
+          - "'Network=appnet.network' in backend_quadlet.content | b64decode"
           - "'EnvironmentFile=' in backend_quadlet.content | b64decode"
         fail_msg: "backend.container quadlet content is incorrect."
 
@@ -67,7 +67,7 @@
         that:
           - "'ContainerName=cache' in cache_quadlet.content | b64decode"
           - "'Image=docker.io/redis:7-alpine' in cache_quadlet.content | b64decode"
-          - "'Network=appnet' in cache_quadlet.content | b64decode"
+          - "'Network=appnet.network' in cache_quadlet.content | b64decode"
         fail_msg: "cache.container quadlet content is incorrect."
 
     - name: Read appnet.network quadlet file
