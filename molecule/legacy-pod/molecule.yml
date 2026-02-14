@@ -16,6 +16,8 @@ platforms:
 
 provisioner:
   name: ansible
+  playbooks:
+    prepare: ../prepare.yml
   inventory:
     host_vars:
       instance:
