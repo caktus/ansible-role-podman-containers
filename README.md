@@ -147,14 +147,14 @@ uv run molecule destroy -s quadlet   # Tear down
 
 ### Test Scenarios
 
-| Scenario                        | Mode    | What it tests                                                                       |
-| ------------------------------- | ------- | ----------------------------------------------------------------------------------- |
-| `build-image`                   | N/A     | Builds the systemd-enabled test container image                                     |
-| `legacy-pod`                    | Legacy  | Pod with multiple containers, `podman generate systemd`                             |
-| `legacy-container-hostname`     | Legacy  | Standalone containers with host hostname inheritance                                |
-| `quadlet`                       | Quadlet | Standalone containers on a shared network, `.container`/`.network` files, env files |
-| `quadlet-default-network`       | Quadlet | Pods and containers using `podman_default_network` with `.network` suffix           |
-| `quadlet-pod`                   | Quadlet | Pod + standalone containers coexisting, `.pod`/`.container`/`.network` files        |
-| `quadlet-container-hostname`    | Quadlet | Standalone containers with host hostname inheritance using quadlets                 |
+| Scenario                     | Mode    | What it tests                                                                       |
+| ---------------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `build-image`                | N/A     | Builds the systemd-enabled test container image                                     |
+| `legacy-pod`                 | Legacy  | Pod with multiple containers, `podman generate systemd`                             |
+| `legacy-container-hostname`  | Legacy  | Standalone containers with host hostname inheritance                                |
+| `quadlet`                    | Quadlet | Standalone containers on a shared network, `.container`/`.network` files, env files |
+| `quadlet-default-network`    | Quadlet | Pods and containers using `podman_default_network` with `.network` suffix           |
+| `quadlet-pod`                | Quadlet | Pod + standalone containers coexisting, `.pod`/`.container`/`.network` files        |
+| `quadlet-container-hostname` | Quadlet | Standalone containers with host hostname inheritance using quadlets                 |
 
 All scenarios use a custom `molecule/Dockerfile.j2` that builds a systemd-enabled Ubuntu 25.10 image with podman 5.4 (required for `.pod` quadlet support).
