@@ -11,6 +11,8 @@ platforms:
     command: ""
     pre_build_image: false
     privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
 
 provisioner:
   name: ansible
