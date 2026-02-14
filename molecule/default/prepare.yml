@@ -41,10 +41,42 @@
     - name: Fail if instance container is not found or exited
       delegate_to: localhost
       become: false
-      ansible.builtin.fail:
-        msg: "Container 'instance' is not running! Status: {{ instance_status.stdout | default('NOT FOUND') }}"
-      when:
-        - instance_status.stdout == 'NOT_FOUND' or 'exited' in instance_status.stdout.lower()
+      block:
+        - name: Get container logs if exited
+          ansible.builtin.shell: podman logs instance 2>&1 || echo "No logs available"
+          register: container_logs
+          changed_when: false
+          ignore_errors: true
+          when: 'instance_status.stdout == "NOT_FOUND" or "exited" in instance_status.stdout.lower()'
+
+        - name: Print container logs
+          ansible.builtin.debug:
+            msg: |
+              Container logs:
+              {{ container_logs.stdout_lines | default(['No output']) }}
+          when: 'instance_status.stdout == "NOT_FOUND" or "exited" in instance_status.stdout.lower()'
+
+        - name: Get container inspect details
+          ansible.builtin.shell: podman inspect instance 2>&1 | grep -A 20 '"Log"' || echo "No log details"
+          register: container_inspect_logs
+          changed_when: false
+          ignore_errors: true
+          when: 'instance_status.stdout == "NOT_FOUND" or "exited" in instance_status.stdout.lower()'
+
+        - name: Print container inspect logs
+          ansible.builtin.debug:
+            msg: |
+              Container inspect logs:
+              {{ container_inspect_logs.stdout_lines | default(['No output']) }}
+          when: 'instance_status.stdout == "NOT_FOUND" or "exited" in instance_status.stdout.lower()'
+
+        - name: Fail with diagnostic info
+          ansible.builtin.fail:
+            msg: |
+              Container 'instance' is not running! Status: {{ instance_status.stdout | default('NOT FOUND') }}
+              See logs above for systemd startup details.
+          when:
+            - instance_status.stdout == 'NOT_FOUND' or 'exited' in instance_status.stdout.lower()
       run_once: true
 
     - name: Wait for container to be ready
