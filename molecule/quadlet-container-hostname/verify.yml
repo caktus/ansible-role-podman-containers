@@ -38,14 +38,14 @@
           - '"HostName=%H" in (redis_quadlet.content | b64decode)'
         fail_msg: "Redis container quadlet does not contain HostName=%H"
 
-    - name: Get hostname from web container
-      ansible.builtin.command: podman exec web hostname
-      register: web_hostname
-      changed_when: false
-
     - name: Get host hostname
       ansible.builtin.command: hostname
       register: host_hostname
+      changed_when: false
+
+    - name: Inspect web container
+      ansible.builtin.command: podman inspect web --format "{{ '{{' }}.Config.Hostname{{ '}}' }}"
+      register: web_hostname
       changed_when: false
 
     - name: Assert web container has host hostname
@@ -53,3 +53,4 @@
         that:
           - web_hostname.stdout == host_hostname.stdout
         fail_msg: "Container hostname '{{ web_hostname.stdout }}' does not match host hostname '{{ host_hostname.stdout }}'"
+

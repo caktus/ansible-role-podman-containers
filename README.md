@@ -90,10 +90,13 @@ podman_containers:
 
 ## Hostname Inheritance
 
-By default, pods and containers use their own hostnames. You can configure them to inherit the host's hostname using:
+By default, pods and containers use their own hostnames. You can configure them
+to inherit the host's hostname using:
 
-- `podman_pod_inherit_hostname: yes` - Pods without an explicit `hostname` will inherit the host's hostname
-- `podman_container_inherit_hostname: yes` - Standalone containers (not in a pod) without an explicit `hostname` will inherit the host's hostname
+- `podman_pod_inherit_hostname: yes` - Pods without an explicit `hostname` will
+  inherit the host's hostname
+- `podman_container_inherit_hostname: yes` - Standalone containers (not in a pod)
+  without an explicit `hostname` will inherit the host's hostname
 
 **Example:**
 
@@ -108,7 +111,9 @@ podman_containers:
     # Container will inherit the host's hostname
 ```
 
-In both legacy and quadlet modes, this uses systemd's `%H` specifier to dynamically set the hostname at container startup. Individual containers/pods can override this by setting their own `hostname` parameter.
+In both legacy and quadlet modes, this uses systemd's `%H` specifier to
+dynamically set the hostname at container startup. Individual containers/pods can
+override this by setting their own `hostname` parameter.
 
 ## Testing
 
