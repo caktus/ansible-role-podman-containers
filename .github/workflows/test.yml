@@ -26,10 +26,10 @@ jobs:
       fail-fast: false
       matrix:
         scenario:
-          - default
+          - build-image
           - legacy-pod
-          - quadlets
-          - quadlets-mixed
+          - quadlet
+          - quadlet-pod
     steps:
       - name: Checkout
         uses: actions/checkout@v4
