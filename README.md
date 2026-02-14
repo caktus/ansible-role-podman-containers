@@ -40,6 +40,7 @@ See [Podman Quadlet docs](https://docs.podman.io/en/latest/markdown/podman-syste
 The `podman_pod_name` variable is deprecated. If you're upgrading from an older version:
 
 **Old approach (deprecated):**
+
 ```yaml
 podman_pod_name: app
 
@@ -56,6 +57,7 @@ podman_containers:
 ```
 
 **New approach (explicit pod assignment):**
+
 ```yaml
 podman_pods:
   - name: app
@@ -66,10 +68,11 @@ podman_containers:
   - name: web
     image: myapp
     tag: latest
-    pod: app  # Explicitly specify pod
+    pod: app # Explicitly specify pod
 ```
 
 **Or use networks (recommended for most use cases):**
+
 ```yaml
 podman_use_quadlets: yes
 podman_default_network: app
