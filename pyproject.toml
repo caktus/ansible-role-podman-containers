@@ -10,4 +10,6 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = []
+dev = [
+    "pre-commit>=3.0",
+]
