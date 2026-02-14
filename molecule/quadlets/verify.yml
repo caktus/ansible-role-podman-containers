@@ -1,0 +1,123 @@
+---
+- name: Verify quadlet containers with shared network
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Check quadlet directory exists
+      ansible.builtin.stat:
+        path: /root/.config/containers/systemd
+      register: quadlet_dir
+
+    - name: Assert quadlet directory was created
+      ansible.builtin.assert:
+        that: quadlet_dir.stat.isdir
+        fail_msg: "Quadlet directory not found."
+
+    - name: Find quadlet files
+      ansible.builtin.find:
+        paths: /root/.config/containers/systemd
+        patterns: "*.container,*.network"
+      register: quadlet_files
+
+    - name: Assert expected quadlet files exist
+      ansible.builtin.assert:
+        that:
+          - quadlet_files.files | map(attribute='path') | map('basename') | sort
+            == ['appnet.network', 'backend.container', 'cache.container', 'frontend.container']
+        fail_msg: >-
+          Expected 4 quadlet files (3 containers + 1 network).
+          Found: {{ quadlet_files.files | map(attribute='path') | map('basename') | list }}
+
+    - name: Read frontend.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/frontend.container
+      register: frontend_quadlet
+
+    - name: Assert frontend quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=frontend' in frontend_quadlet.content | b64decode"
+          - "'Image=docker.io/traefik/whoami:latest' in frontend_quadlet.content | b64decode"
+          - "'PublishPort=8080:80' in frontend_quadlet.content | b64decode"
+          - "'Network=appnet' in frontend_quadlet.content | b64decode"
+        fail_msg: "frontend.container quadlet content is incorrect."
+
+    - name: Read backend.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/backend.container
+      register: backend_quadlet
+
+    - name: Assert backend quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=backend' in backend_quadlet.content | b64decode"
+          - "'Image=docker.io/traefik/whoami:latest' in backend_quadlet.content | b64decode"
+          - "'Network=appnet' in backend_quadlet.content | b64decode"
+          - "'EnvironmentFile=' in backend_quadlet.content | b64decode"
+        fail_msg: "backend.container quadlet content is incorrect."
+
+    - name: Read cache.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/cache.container
+      register: cache_quadlet
+
+    - name: Assert cache quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=cache' in cache_quadlet.content | b64decode"
+          - "'Image=docker.io/redis:7-alpine' in cache_quadlet.content | b64decode"
+          - "'Network=appnet' in cache_quadlet.content | b64decode"
+        fail_msg: "cache.container quadlet content is incorrect."
+
+    - name: Read appnet.network quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/appnet.network
+      register: network_quadlet
+
+    - name: Assert network quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'[Network]' in network_quadlet.content | b64decode"
+        fail_msg: "appnet.network quadlet content is incorrect."
+
+    - name: Check backend env file exists
+      ansible.builtin.stat:
+        path: /root/env/backend.env
+      register: env_file
+
+    - name: Assert env file has restricted permissions
+      ansible.builtin.assert:
+        that:
+          - env_file.stat.exists
+          - env_file.stat.mode == '0600'
+        fail_msg: "Env file missing or wrong permissions."
+
+    - name: Read backend env file
+      ansible.builtin.slurp:
+        src: /root/env/backend.env
+      register: env_content
+
+    - name: Assert env file has expected variables
+      ansible.builtin.assert:
+        that:
+          - "'APP_NAME=backend' in env_content.content | b64decode"
+          - "'DATABASE_URL=postgres://db:5432/app' in env_content.content | b64decode"
+        fail_msg: "Env file content is incorrect."
+
+    # ------------------------------------------------------------------
+    # Verify containers are actually running via systemd quadlets
+    # ------------------------------------------------------------------
+
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert all containers are running
+      ansible.builtin.assert:
+        that:
+          - "'frontend' in containers.stdout"
+          - "'backend' in containers.stdout"
+          - "'cache' in containers.stdout"
+        fail_msg: "Missing containers. Running: {{ containers.stdout }}"

@@ -1,0 +1,13 @@
+[project]
+name = "caktus-podman-containers"
+version = "0.0.0"
+description = "Ansible role for managing Podman containers"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "ansible-core>=2.16,<2.18",
+    "molecule>=25.0",
+    "molecule-podman>=2.0",
+]
+
+[dependency-groups]
+dev = []

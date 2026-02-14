@@ -1,2 +1,5 @@
 .envrc
 .direnv
+.venv/
+uv.lock
+__pycache__/

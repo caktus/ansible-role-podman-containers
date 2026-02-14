@@ -1,0 +1,40 @@
+---
+driver:
+  name: podman
+
+platforms:
+  - name: instance
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+
+provisioner:
+  name: ansible
+  inventory:
+    host_vars:
+      instance:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: false
+        podman_networks:
+          - name: molecule_test_net
+            state: present
+        podman_pods: []
+        podman_containers: []
+        podman_build_repos: []
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

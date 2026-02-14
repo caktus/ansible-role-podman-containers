@@ -1,0 +1,64 @@
+---
+# Scenario: Quadlet mode with both a pod and standalone containers.
+# Tests that pods and independent containers can coexist in quadlet mode.
+# Requires podman 5.0+ for .pod quadlet support (Ubuntu 25.10+ ships 5.4).
+driver:
+  name: podman
+
+platforms:
+  - name: instance
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+
+provisioner:
+  name: ansible
+  inventory:
+    host_vars:
+      instance:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: true
+        podman_use_env_files: true
+        podman_build_repos: []
+        podman_networks:
+          - name: shared
+        podman_pods:
+          - name: api
+            publish:
+              - "8080:80"
+        podman_containers:
+          # Containers inside the pod
+          - name: api-web
+            image: docker.io/traefik/whoami
+            tag: latest
+            pod: api
+          - name: api-worker
+            image: docker.io/library/alpine
+            tag: latest
+            pod: api
+            command: sleep infinity
+            env:
+              ROLE: worker
+          # Standalone container outside the pod
+          - name: redis
+            image: docker.io/redis
+            tag: "7-alpine"
+            network:
+              - shared.network
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

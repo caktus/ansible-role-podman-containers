@@ -1,0 +1,42 @@
+---
+name: Molecule Tests
+
+on:
+  push:
+    branches: [main, quadlet-support]
+    paths:
+      - "deployment/roles/caktus.podman-containers/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "deployment/roles/caktus.podman-containers/**"
+
+defaults:
+  run:
+    working-directory: deployment/roles/caktus.podman-containers
+
+jobs:
+  molecule:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - default
+          - legacy-pod
+          - quadlets
+          - quadlets-mixed
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Molecule (${{ matrix.scenario }})
+        run: uv run molecule test -s ${{ matrix.scenario }}

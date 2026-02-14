@@ -1,0 +1,60 @@
+---
+# Scenario: Legacy mode with a single pod containing multiple containers.
+# Tests the traditional `podman generate systemd` workflow.
+driver:
+  name: podman
+
+platforms:
+  - name: instance
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+
+provisioner:
+  name: ansible
+  inventory:
+    host_vars:
+      instance:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: false
+        podman_use_env_files: true
+        podman_build_repos: []
+        podman_networks: []
+        podman_pods:
+          - name: webapp
+            publish:
+              - "8080:80"
+        podman_containers:
+          - name: web
+            image: docker.io/traefik/whoami
+            tag: latest
+            pod: webapp
+          - name: redis
+            image: docker.io/redis
+            tag: "7-alpine"
+            pod: webapp
+          - name: worker
+            image: docker.io/alpine
+            tag: latest
+            pod: webapp
+            command: sleep infinity
+            env:
+              ROLE: worker
+              QUEUE: default
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

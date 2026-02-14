@@ -34,3 +34,43 @@ podman_containers:
 After deploying, test with `curl http://localhost:8080`.
 
 See [Podman Quadlet docs](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html) for `quadlet_options`.
+
+## Testing
+
+This role uses [Molecule](https://ansible.readthedocs.io/projects/molecule/) with the Podman driver for integration testing. Dependencies are managed with [uv](https://docs.astral.sh/uv/).
+
+### Setup
+
+```bash
+# Install dependencies
+uv sync --python 3.13
+```
+
+**Requirements:** Podman must be installed on the host machine.
+
+### Running Tests
+
+```bash
+# Run all scenarios
+uv run molecule test              # default scenario
+uv run molecule test -s legacy-pod
+uv run molecule test -s quadlets
+uv run molecule test -s quadlets-mixed
+
+# Or run individual steps for a scenario
+uv run molecule create -s quadlets    # Create the test container
+uv run molecule converge -s quadlets  # Apply the role
+uv run molecule verify -s quadlets    # Run assertions
+uv run molecule destroy -s quadlets   # Tear down
+```
+
+### Test Scenarios
+
+| Scenario         | Mode    | What it tests                                                                       |
+| ---------------- | ------- | ----------------------------------------------------------------------------------- |
+| `default`        | Legacy  | Network creation, directory setup, systemd dirs                                     |
+| `legacy-pod`     | Legacy  | Pod with multiple containers, `podman generate systemd`                             |
+| `quadlets`       | Quadlet | Standalone containers on a shared network, `.container`/`.network` files, env files |
+| `quadlets-mixed` | Quadlet | Pod + standalone containers coexisting, `.pod`/`.container`/`.network` files        |
+
+All scenarios use a custom `molecule/Dockerfile.j2` that builds a systemd-enabled Ubuntu 25.10 image with podman 5.4 (required for `.pod` quadlet support).

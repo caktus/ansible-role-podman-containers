@@ -1,0 +1,77 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    # ------------------------------------------------------------------
+    # Smoke test: podman_network state
+    #
+    # The role sets network state via:
+    #   state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
+    #
+    # When podman_use_quadlets is false and no explicit state is given,
+    # `omit` is used, which makes the podman_network module default to
+    # state=present. Verify the network was actually created.
+    # ------------------------------------------------------------------
+
+    - name: List podman networks
+      ansible.builtin.command:
+        cmd: podman network ls --format "{{ '{{' }}.Name{{ '}}' }}"
+      register: podman_networks_out
+      changed_when: false
+
+    - name: Assert molecule_test_net network exists
+      ansible.builtin.assert:
+        that:
+          - "'molecule_test_net' in podman_networks_out.stdout_lines"
+        fail_msg: >-
+          Expected network 'molecule_test_net' to be present but it was
+          not found. Networks found: {{ podman_networks_out.stdout_lines }}
+        success_msg: "Network 'molecule_test_net' was created successfully."
+
+    - name: Inspect molecule_test_net network
+      ansible.builtin.command:
+        cmd: podman network inspect molecule_test_net
+      register: network_inspect
+      changed_when: false
+
+    - name: Parse network inspect output
+      ansible.builtin.set_fact:
+        network_info: "{{ network_inspect.stdout | from_json | first }}"
+
+    - name: Assert network has expected properties
+      ansible.builtin.assert:
+        that:
+          - network_info.name == 'molecule_test_net'
+          - network_info.driver is defined
+        fail_msg: "Network inspect returned unexpected data: {{ network_info }}"
+        success_msg: "Network 'molecule_test_net' has correct properties."
+
+    # ------------------------------------------------------------------
+    # Verify directories were created
+    # ------------------------------------------------------------------
+
+    - name: Check log directory exists
+      ansible.builtin.stat:
+        path: /root/log
+      register: log_dir
+
+    - name: Assert log directory exists
+      ansible.builtin.assert:
+        that:
+          - log_dir.stat.exists
+          - log_dir.stat.isdir
+        fail_msg: "Log directory /root/log was not created."
+
+    - name: Check systemd user directory exists
+      ansible.builtin.stat:
+        path: /root/.config/systemd/user
+      register: systemd_dir
+
+    - name: Assert systemd user directory exists
+      ansible.builtin.assert:
+        that:
+          - systemd_dir.stat.exists
+          - systemd_dir.stat.isdir
+        fail_msg: "Systemd user directory was not created."

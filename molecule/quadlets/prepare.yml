@@ -1,0 +1,13 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Activate network-online.target for quadlet services
+      ansible.builtin.raw: systemctl start network-online.target
+      changed_when: true
+
+    - name: Start user systemd instance for root (user@0)
+      ansible.builtin.raw: systemctl start user@0.service
+      changed_when: true
