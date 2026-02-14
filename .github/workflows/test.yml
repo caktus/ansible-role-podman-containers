@@ -3,7 +3,7 @@ name: Molecule Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, quadlet-support]
     paths:
       - ".github/workflows/test.yml"
       - "molecule/**"
@@ -11,7 +11,7 @@ on:
       - "defaults/**"
       - "handlers/**"
   pull_request:
-    branches: [main]
+    branches: [main, quadlet-support]
     paths:
       - ".github/workflows/test.yml"
       - "molecule/**"
