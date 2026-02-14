@@ -17,16 +17,16 @@ See `defaults/main.yml` for all supported variables, defaults, and examples.
 
 ```yaml
 podman_use_quadlets: yes
-podman_network_name: app
+podman_default_network: app
 
 podman_networks:
-  - name: "{{ podman_network_name }}"
+  - name: "{{ podman_default_network }}"
 
 podman_containers:
   - name: whoami
     image: docker.io/traefik/whoami
     tag: latest
-    network: ["{{ podman_network_name }}"]
+    # No network specified - uses podman_default_network
     publish:
       - "8080:80"
 ```

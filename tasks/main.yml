@@ -112,6 +112,7 @@
       "podman_use_quadlets" is true. Please manually remove quadlet unit
       files and re-run the play when changing networks in quadlet mode.
   when: podman_use_quadlets and podman_delete_before_create
+
 - name: Stop and delete pods/containers (legacy delete_before_create)
   when: not podman_use_quadlets and podman_delete_before_create
   block:
@@ -219,8 +220,8 @@
     user: "{{ item.user | default(omit) }}"
     userns: "{{ item.userns | default(omit) }}"
     hostname: "{{ item.hostname | default(omit) }}"
-    # In quadlet mode, reference .network files to create systemd dependencies
-    network: "{{ (podman_use_quadlets and item.network is defined) | ternary(item.network | map('regex_replace', '^(.*)$', '\\1.network') | list, item.network | default(omit)) }}"
+    # Use container's network if defined, otherwise fall back to podman_default_network
+    network: "{{ item.network | default((podman_default_network is defined) | ternary([podman_default_network], omit)) }}"
     publish: "{{ item.publish | default(omit) }}"
     expose: "{{ item.expose | default(omit) }}"
     dns: "{{ item.dns | default(omit) }}"

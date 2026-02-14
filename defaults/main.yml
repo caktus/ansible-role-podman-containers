@@ -25,11 +25,13 @@ podman_build_repos: []
 # Use podman_networks with podman_use_quadlets: yes instead.
 # podman_pod_name: app
 
-# Set podman_network_name and use it in container definitions for network-based setup.
-# Networks allow independent container management (recommended over pods for most cases
-# other than true sidecar containers that should be stopped and started with the main
-# container).
-# podman_network_name: app
+# Default network for containers that don't specify their own network.
+# If set, containers without a `network` defined will use this network.
+# Container-level `network` always overrides this default.
+# Note: This value should NOT include the .network suffix; containers that
+# need to reference a quadlet network file must include .network in their
+# own network definition.
+# podman_default_network: app
 
 # Podman pods to create. Containers in a pod share a network namespace
 # and are started/stopped together.
@@ -44,11 +46,11 @@ podman_pods: []
 #   - name: redis
 #     image: docker.io/redis
 #     tag: latest
-#     network: ["{{ podman_network_name }}"]
+#     # No network specified - uses podman_default_network if defined
 #   - name: web
 #     image: localhost/myapp
 #     tag: latest
-#     network: ["{{ podman_network_name }}"]
+#     # No network specified - uses podman_default_network if defined
 #     env:
 #       REDIS_URL: "redis://redis:6379/0"
 podman_containers: []
