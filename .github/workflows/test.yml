@@ -4,16 +4,8 @@ name: Molecule Tests
 on:
   push:
     branches: [main, quadlet-support]
-    paths:
-      - "deployment/roles/caktus.podman-containers/**"
   pull_request:
     branches: [main]
-    paths:
-      - "deployment/roles/caktus.podman-containers/**"
-
-defaults:
-  run:
-    working-directory: deployment/roles/caktus.podman-containers
 
 jobs:
   molecule:
