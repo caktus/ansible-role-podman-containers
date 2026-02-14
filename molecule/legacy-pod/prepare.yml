@@ -5,12 +5,12 @@
 
   tasks:
     - name: Wait for systemd to initialize
-      ansible.builtin.command: systemctl is-system-running
+      ansible.builtin.shell: systemctl is-system-running || systemctl is-system-running | grep -q degraded
       register: systemd_status
-      until: systemd_status.stdout in ['running', 'degraded']
+      changed_when: false
       retries: 30
       delay: 1
-      changed_when: false
+      until: systemd_status.rc == 0 or 'degraded' in systemd_status.stdout
 
     - name: Activate network-online.target for quadlet services
       ansible.builtin.raw: systemctl start network-online.target
