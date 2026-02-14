@@ -3,7 +3,7 @@ name: Molecule Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, quadlet-support]
     paths:
       - ".github/workflows/test.yml"
       - "molecule/**"
@@ -11,7 +11,7 @@ on:
       - "defaults/**"
       - "handlers/**"
   pull_request:
-    branches: [main]
+    branches: [main, quadlet-support]
     paths:
       - ".github/workflows/test.yml"
       - "molecule/**"
@@ -29,6 +29,7 @@ jobs:
           - build-image
           - legacy-pod
           - quadlet
+          - quadlet-default-network
           - quadlet-pod
     steps:
       - name: Checkout

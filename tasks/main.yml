@@ -180,7 +180,18 @@
     state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
     recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
     publish: "{{ item.publish | default(omit) }}"
-    network: "{{ item.network | default((podman_default_network is defined) | ternary([podman_default_network], omit)) }}"
+    network: >-
+      {%- if item.network is defined -%}
+        {{ item.network }}
+      {%- elif podman_default_network is defined -%}
+        {%- if podman_use_quadlets -%}
+          {{ [podman_default_network ~ '.network'] }}
+        {%- else -%}
+          {{ [podman_default_network] }}
+        {%- endif -%}
+      {%- else -%}
+        {{ omit }}
+      {%- endif -%}
     userns: "{{ item.userns | default(omit) }}"
     hostname: "{{ item.hostname | default(podman_pod_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)) }}"
     cpus: "{{ item.cpus | default(omit) }}"
