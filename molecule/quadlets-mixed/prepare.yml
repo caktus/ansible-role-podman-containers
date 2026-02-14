@@ -4,6 +4,49 @@
   gather_facts: false
 
   tasks:
+    - name: List all containers
+      delegate_to: localhost
+      become: false
+      ansible.builtin.shell: podman ps -a
+      register: all_containers
+      changed_when: false
+      run_once: true
+
+    - name: Print all containers
+      delegate_to: localhost
+      become: false
+      ansible.builtin.debug:
+        msg: |
+          All containers:
+          {{ all_containers.stdout }}
+      run_once: true
+
+    - name: Check instance container specifically
+      delegate_to: localhost
+      become: false
+      ansible.builtin.shell: podman inspect instance 2>/dev/null || echo "NOT_FOUND"
+      register: instance_status
+      changed_when: false
+      ignore_errors: true
+      run_once: true
+
+    - name: Print instance container status
+      delegate_to: localhost
+      become: false
+      ansible.builtin.debug:
+        msg: |
+          Instance container status: {{ instance_status.stdout | default('NOT FOUND') }}
+      run_once: true
+
+    - name: Fail if instance container is not found or exited
+      delegate_to: localhost
+      become: false
+      ansible.builtin.fail:
+        msg: "Container 'instance' is not running! Status: {{ instance_status.stdout | default('NOT FOUND') }}"
+      when:
+        - instance_status.stdout == 'NOT_FOUND' or 'exited' in instance_status.stdout.lower()
+      run_once: true
+
     - name: Wait for container to be ready
       ansible.builtin.wait_for_connection:
         delay: 2
