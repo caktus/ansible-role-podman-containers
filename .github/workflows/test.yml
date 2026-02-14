@@ -29,6 +29,7 @@ jobs:
           - build-image
           - legacy-pod
           - quadlet
+          - quadlet-default-network
           - quadlet-pod
     steps:
       - name: Checkout
