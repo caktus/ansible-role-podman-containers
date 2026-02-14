@@ -63,7 +63,7 @@
 - name: Create network(s)
   containers.podman.podman_network:
     name: "{{ item.name }}"
-    state: "{{ ((item.state | default('')) == 'absent') | ternary('absent', podman_use_quadlets | ternary('quadlet', item.state | default('present'))) }}"
+    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
     driver: "{{ item.driver | default(omit) }}"
     subnet: "{{ item.subnet | default(omit) }}"
     gateway: "{{ item.gateway | default(omit) }}"
@@ -152,7 +152,7 @@
 - name: Create pod(s)
   containers.podman.podman_pod:
     name: "{{ item.name }}"
-    state: "{{ ((item.state | default('')) == 'absent') | ternary('absent', podman_use_quadlets | ternary('quadlet', item.state | default('created'))) }}"
+    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
     recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
     publish: "{{ item.publish | default(omit) }}"
     network: "{{ item.network | default(omit) }}"
@@ -204,7 +204,7 @@
   containers.podman.podman_container:
     pod: "{{ item.pod | default(podman_pod_name) | default(omit) }}"
     name: "{{ item.name }}"
-    state: "{{ ((item.state | default('')) == 'absent') | ternary('absent', podman_use_quadlets | ternary('quadlet', item.state | default('created'))) }}"
+    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
     recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
     image: "{{ item.image }}:{{ item.tag }}"
     pull: "{{ item.pull | default(omit) }}"
