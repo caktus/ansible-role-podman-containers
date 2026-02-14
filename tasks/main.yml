@@ -5,6 +5,15 @@
   args:
     creates: "/var/lib/systemd/linger/{{ podman_user }}"
 
+- name: Warn about deprecated podman_pod_name
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: podman_pod_name is deprecated and no longer automatically assigns
+      containers to pods. To put containers in a pod, explicitly set 'pod: pod_name'
+      on each container. For network-based setups, use podman_networks with
+      podman_use_quadlets: yes instead.
+  when: podman_pod_name is defined and not podman_use_quadlets
+
 - name: Create directories
   ansible.builtin.file:
     path: "{{ item }}"
@@ -315,7 +324,7 @@
       loop: "{{ podman_containers }}"
       loop_control:
         label: "{{ item.name }}"
-      when: podman_pod_name is not defined and not item.pod | default(false) and container.changed
+      when: not item.pod | default(false) and container.changed
 
     - name: Replace placeholder hostname in pod units
       ansible.builtin.replace:
