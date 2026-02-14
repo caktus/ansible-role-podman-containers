@@ -43,5 +43,8 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Run pre-commit checks
+        run: uv run pre-commit run --all-files
+
       - name: Run Molecule (${{ matrix.scenario }})
         run: uv run molecule test -s ${{ matrix.scenario }}
