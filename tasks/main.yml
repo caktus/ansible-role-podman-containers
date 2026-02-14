@@ -21,68 +21,45 @@
     mode: "0755"
   when: podman_use_quadlets
 
-- name: Create env file directory
-  ansible.builtin.file:
-    path: "{{ podman_env_file_dir }}"
-    state: directory
-    mode: "0700"
-    owner: "{{ podman_user }}"
-    group: "{{ podman_user }}"
+- name: Manage container environment files
   when: podman_use_env_files
+  block:
+    - name: Create env file directory
+      ansible.builtin.file:
+        path: "{{ podman_env_file_dir }}"
+        state: directory
+        mode: "0700"
+        owner: "{{ podman_user }}"
+        group: "{{ podman_user }}"
 
-- name: Write container environment files
-  ansible.builtin.copy:
-    content: |
-      {% for key, value in item.env.items() %}
-      {{ key }}={{ value | string | regex_replace('\n', '\\n') | quote }}
-      {% endfor %}
-    dest: "{{ podman_env_file_dir }}/{{ item.name }}.env"
-    mode: "0600"
-    owner: "{{ podman_user }}"
-    group: "{{ podman_user }}"
-  # Loop through all the containers with an "env" defined and either (a) NO state or (b) a state other than "absent"
-  loop: >
-    {{
-      (podman_containers | selectattr('env', 'defined') | rejectattr('state', 'defined') | list) +
-      (podman_containers | selectattr('env', 'defined') | selectattr('state', 'defined') | rejectattr('state', 'equalto', 'absent') | list)
-    }}
-  loop_control:
-    label: "{{ item.name }}"
-  when: podman_use_env_files
-  register: env_files
+    - name: Write container environment files
+      ansible.builtin.copy:
+        content: |
+          {% for key, value in item.env.items() %}
+          {{ key }}={{ value | string | regex_replace('\n', '\\n') | quote }}
+          {% endfor %}
+        dest: "{{ podman_env_file_dir }}/{{ item.name }}.env"
+        mode: "0600"
+        owner: "{{ podman_user }}"
+        group: "{{ podman_user }}"
+      # Loop through all the containers with an "env" defined and either (a) NO state or (b) a state other than "absent"
+      loop: >
+        {{
+          (podman_containers | selectattr('env', 'defined') | rejectattr('state', 'defined') | list) +
+          (podman_containers | selectattr('env', 'defined') | selectattr('state', 'defined') | rejectattr('state', 'equalto', 'absent') | list)
+        }}
+      loop_control:
+        label: "{{ item.name }}"
 
-- name: Remove env files for absent containers
-  ansible.builtin.file:
-    path: "{{ podman_env_file_dir }}/{{ item.name }}.env"
-    state: absent
-  loop: "{{ podman_containers | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') | list }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when: podman_use_env_files
+    - name: Remove env files for absent containers
+      ansible.builtin.file:
+        path: "{{ podman_env_file_dir }}/{{ item.name }}.env"
+        state: absent
+      loop: "{{ podman_containers | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') | list }}"
+      loop_control:
+        label: "{{ item.name }}"
 
-- name: Create network(s)
-  containers.podman.podman_network:
-    name: "{{ item.name }}"
-    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
-    driver: "{{ item.driver | default(omit) }}"
-    subnet: "{{ item.subnet | default(omit) }}"
-    gateway: "{{ item.gateway | default(omit) }}"
-    ip_range: "{{ item.ip_range | default(omit) }}"
-    ipv6: "{{ item.ipv6 | default(omit) }}"
-    internal: "{{ item.internal | default(omit) }}"
-    dns: "{{ item.dns | default(omit) }}"
-    disable_dns: "{{ item.disable_dns | default(omit) }}"
-    opt: "{{ item.opt | default(omit) }}"
-    interface_name: "{{ item.interface_name | default(omit) }}"
-    route: "{{ item.route | default(omit) }}"
-    macvlan: "{{ item.macvlan | default(omit) }}"
-    quadlet_dir: "{{ podman_use_quadlets | ternary(podman_quadlet_dir, omit) }}"
-    quadlet_options: "{{ item.quadlet_options | default(omit) }}"
-  loop: "{{ podman_networks }}"
-  loop_control:
-    label: "{{ item.name }}"
-  register: network
-
+### Build images for all podman_build_repos ###
 - name: Checkout git repo(s)
   ansible.builtin.git:
     repo: "{{ item.repo }}"
@@ -134,7 +111,7 @@
 
     - name: Delete container(s)
       containers.podman.podman_container:
-        pod: "{{ item.pod | default(podman_pod_name) | default(omit) }}"
+        pod: "{{ item.pod | default(omit) }}"
         name: "{{ item.name }}"
         state: absent
       loop: "{{ podman_containers }}"
@@ -148,34 +125,6 @@
         state: absent
       loop: "{{ podman_pods | map(attribute='name') }}"
       ignore_errors: true
-
-- name: Create pod(s)
-  containers.podman.podman_pod:
-    name: "{{ item.name }}"
-    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
-    recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
-    publish: "{{ item.publish | default(omit) }}"
-    network: "{{ item.network | default(omit) }}"
-    userns: "{{ item.userns | default(omit) }}"
-    hostname: "{{ item.hostname | default(podman_pod_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)) }}"
-    cpus: "{{ item.cpus | default(omit) }}"
-    memory: "{{ item.memory | default(omit) }}"
-    dns: "{{ item.dns | default(omit) }}"
-    dns_search: "{{ item.dns_search | default(omit) }}"
-    share: "{{ item.share | default(omit) }}"
-    pid: "{{ item.pid | default(omit) }}"
-    infra: "{{ item.infra | default(omit) }}"
-    infra_image: "{{ item.infra_image | default(omit) }}"
-    infra_name: "{{ item.infra_name | default(omit) }}"
-    volume: "{{ item.volume | default(omit) }}"
-    label: "{{ item.label | default(omit) }}"
-    security_opt: "{{ item.security_opt | default(omit) }}"
-    quadlet_dir: "{{ podman_use_quadlets | ternary(podman_quadlet_dir, omit) }}"
-    quadlet_options: "{{ item.quadlet_options | default(omit) }}"
-  loop: "{{ podman_pods }}"
-  loop_control:
-    label: "{{ item.name }}"
-  register: pod
 
 ### Quadlet cleanup for containers with state: absent ###
 - name: Remove containers with state absent (quadlet mode)
@@ -200,9 +149,71 @@
         label: "{{ item.name }}"
       register: quadlet_cleanup
 
+- name: Create network(s)
+  containers.podman.podman_network:
+    name: "{{ item.name }}"
+    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
+    driver: "{{ item.driver | default(omit) }}"
+    subnet: "{{ item.subnet | default(omit) }}"
+    gateway: "{{ item.gateway | default(omit) }}"
+    ip_range: "{{ item.ip_range | default(omit) }}"
+    ipv6: "{{ item.ipv6 | default(omit) }}"
+    internal: "{{ item.internal | default(omit) }}"
+    dns: "{{ item.dns | default(omit) }}"
+    disable_dns: "{{ item.disable_dns | default(omit) }}"
+    opt: "{{ item.opt | default(omit) }}"
+    interface_name: "{{ item.interface_name | default(omit) }}"
+    route: "{{ item.route | default(omit) }}"
+    macvlan: "{{ item.macvlan | default(omit) }}"
+    quadlet_dir: "{{ podman_use_quadlets | ternary(podman_quadlet_dir, omit) }}"
+    quadlet_options: "{{ item.quadlet_options | default(omit) }}"
+  loop: "{{ podman_networks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: network
+
+- name: Create pod(s)
+  containers.podman.podman_pod:
+    name: "{{ item.name }}"
+    state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
+    recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
+    publish: "{{ item.publish | default(omit) }}"
+    network: "{{ item.network | default((podman_default_network is defined) | ternary([podman_default_network], omit)) }}"
+    userns: "{{ item.userns | default(omit) }}"
+    hostname: "{{ item.hostname | default(podman_pod_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)) }}"
+    cpus: "{{ item.cpus | default(omit) }}"
+    memory: "{{ item.memory | default(omit) }}"
+    dns: "{{ item.dns | default(omit) }}"
+    dns_search: "{{ item.dns_search | default(omit) }}"
+    share: "{{ item.share | default(omit) }}"
+    pid: "{{ item.pid | default(omit) }}"
+    infra: "{{ item.infra | default(omit) }}"
+    infra_image: "{{ item.infra_image | default(omit) }}"
+    infra_name: "{{ item.infra_name | default(omit) }}"
+    volume: "{{ item.volume | default(omit) }}"
+    label: "{{ item.label | default(omit) }}"
+    security_opt: "{{ item.security_opt | default(omit) }}"
+    quadlet_dir: "{{ podman_use_quadlets | ternary(podman_quadlet_dir, omit) }}"
+    quadlet_options: "{{ item.quadlet_options | default(omit) }}"
+  loop: "{{ podman_pods }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: pod
+
 - name: Create container(s)
   containers.podman.podman_container:
-    pod: "{{ item.pod | default(podman_pod_name) | default(omit) }}"
+    # In quadlet mode, append .pod suffix so the quadlet generator creates
+    # a systemd dependency on the pod unit.
+    pod: >-
+      {%- if item.pod is defined -%}
+        {%- if podman_use_quadlets -%}
+          {{ item.pod }}.pod
+        {%- else -%}
+          {{ item.pod }}
+        {%- endif -%}
+      {%- else -%}
+        {{ omit }}
+      {%- endif -%}
     name: "{{ item.name }}"
     state: "{{ item.state | default(podman_use_quadlets | ternary('quadlet', omit)) }}"
     recreate: "{{ item.recreate | default(podman_recreate) | default(true) }}"
@@ -213,15 +224,30 @@
     entrypoint: "{{ item.entrypoint | default(omit) }}"
     workdir: "{{ item.workdir | default(omit) }}"
     volumes: "{{ item.volumes | default(omit) }}"
-    env: "{{ (podman_use_env_files and item.env is defined) | ternary({'ENV_FILE_CHECKSUM': (item.env | to_json | hash('sha256'))[:16]}, item.env | default(omit)) }}"
-    env_file: "{{ (podman_use_env_files and item.env is defined) | ternary([podman_env_file_dir ~ '/' ~ item.name ~ '.env'] + (item.env_file is defined | ternary((item.env_file is string) | ternary([item.env_file], item.env_file), [])), item.env_file | default(omit)) }}"
+    env: "{{ podman_use_env_files | ternary({'ENV_FILE_CHECKSUM': (item.env | default({}) | to_json | hash('sha256'))[:16]}, item.env | default(omit)) }}"
+    env_file: "{{ item.env_file | default((podman_use_env_files and item.env is defined) | ternary([podman_env_file_dir ~ '/' ~ item.name ~ '.env'], omit)) }}"
     log_driver: "{{ item.log_driver | default(podman_log_driver) | default(omit) }}"
     log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"
     user: "{{ item.user | default(omit) }}"
     userns: "{{ item.userns | default(omit) }}"
     hostname: "{{ item.hostname | default(omit) }}"
-    # Use container's network if defined, otherwise fall back to podman_default_network
-    network: "{{ item.network | default((podman_default_network is defined) | ternary([podman_default_network], omit)) }}"
+    # Use container's network if defined, otherwise fall back to podman_default_network.
+    # Network should not be set for containers in a pod.
+    # In quadlet mode, the default network gets a .network suffix so the quadlet
+    # generator creates a systemd dependency. For explicit container-level network
+    # lists, users should include .network suffixes themselves.
+    network: >-
+      {%- if item.network is defined -%}
+        {{ item.network }}
+      {%- elif podman_default_network is defined and item.pod is not defined -%}
+        {%- if podman_use_quadlets -%}
+          {{ [podman_default_network ~ '.network'] }}
+        {%- else -%}
+          {{ [podman_default_network] }}
+        {%- endif -%}
+      {%- else -%}
+        {{ omit }}
+      {%- endif -%}
     publish: "{{ item.publish | default(omit) }}"
     expose: "{{ item.expose | default(omit) }}"
     dns: "{{ item.dns | default(omit) }}"
@@ -291,27 +317,36 @@
   ansible.builtin.systemd:
     scope: user
     daemon_reload: true
-  when: network.changed or pod.changed or container.changed or (quadlet_cleanup is defined and quadlet_cleanup.changed) or (env_files is defined and env_files.changed)
 
-- name: Enable and start pod service(s)
+- name: (Re)start changed pod services
   ansible.builtin.systemd:
-    name: "{{ podman_use_quadlets | ternary(item.systemd_unit | default(item.name ~ '-pod.service'), 'pod-' ~ item.name) }}"
+    name: "{{ podman_use_quadlets | ternary(item.item.name ~ '-pod.service', 'pod-' ~ item.item.name) }}"
     scope: user
     enabled: true
-    state: "{{ (pod.changed or container.changed or (env_files is defined and env_files.changed)) | ternary('restarted', 'started') }}"
-  loop: "{{ podman_pods }}"
+    state: "{{ item.changed | ternary('restarted', 'started') }}"
+  loop: "{{ pod.results }}"
   loop_control:
-    label: "{{ item.name }}"
-  when: (item.state | default('')) != 'absent'
+    label: "{{ item.item.name }}"
+  when:
+    - (item.item.state | default('')) != 'absent'
 
-- name: Enable and start container service(s)
+- name: (Re)start changed container services
   ansible.builtin.systemd:
-    name: "{{ podman_use_quadlets | ternary(item.name ~ '.service', 'container-' ~ item.name) }}"
+    name: "{{ podman_use_quadlets | ternary(item.item.name ~ '.service', 'container-' ~ item.item.name) }}"
     scope: user
     enabled: true
-    state: "{{ container.changed | ternary('restarted', 'started') }}"
-    # state: "{{ (container.changed or (env_files.results | default([]) | selectattr('item.name', 'equalto', item.name) | map(attribute='changed') | first | default(false))) | ternary('restarted', 'started') }}"
-  loop: "{{ podman_containers }}"
+    state: "{{ item.changed | ternary('restarted', 'started') }}"
+  loop: "{{ container.results }}"
   loop_control:
-    label: "{{ item.name }}"
-  when: (item.state | default('')) != 'absent' and (podman_use_quadlets or (podman_pod_name is not defined and not item.pod | default(false)))
+    label: "{{ item.item.name }}"
+  retries: 3
+  delay: 5
+  register: container_restart_result
+  until: container_restart_result is not failed
+  when:
+    - (item.item.state | default('')) != 'absent'
+    # Containers in a pod are managed by the pod service in both modes:
+    # - Legacy mode: pod service starts all member containers.
+    # - Quadlet mode: StartWithPod=true (default) causes containers to
+    #   be started/stopped alongside the pod service.
+    - not (item.item.pod | default(false))
