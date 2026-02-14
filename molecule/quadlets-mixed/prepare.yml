@@ -4,6 +4,10 @@
   gather_facts: false
 
   tasks:
+    - name: Ensure Ansible tmp directory exists
+      ansible.builtin.raw: mkdir -p /root/.ansible/tmp && chmod 700 /root/.ansible/tmp
+      changed_when: false
+
     - name: Wait for systemd to initialize
       ansible.builtin.shell: systemctl is-system-running || systemctl is-system-running | grep -q degraded
       register: systemd_status
