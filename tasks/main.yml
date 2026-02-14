@@ -9,6 +9,8 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
     mode: "0755"
   loop: "{{ podman_directories }}"
 
