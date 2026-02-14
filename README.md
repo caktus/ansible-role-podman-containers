@@ -93,10 +93,8 @@ podman_containers:
 By default, pods and containers use their own hostnames. You can configure them
 to inherit the host's hostname using:
 
-- `podman_pod_inherit_hostname: yes` - Pods without an explicit `hostname` will
-  inherit the host's hostname
-- `podman_container_inherit_hostname: yes` - Standalone containers (not in a pod)
-  without an explicit `hostname` will inherit the host's hostname
+- `podman_pod_inherit_hostname: yes` - Pods without an explicit `hostname` will inherit the host's hostname
+- `podman_container_inherit_hostname: yes` - Standalone containers (not in a pod) without an explicit `hostname` will inherit the host's hostname
 
 **Example:**
 
