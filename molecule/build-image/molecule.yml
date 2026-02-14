@@ -1,0 +1,55 @@
+---
+# Scenario: Build an image from a public git repo and run it as a quadlet container.
+# Tests the podman_build_repos functionality end-to-end.
+driver:
+  name: podman
+
+platforms:
+  - name: instance
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+provisioner:
+  name: ansible
+  inventory:
+    host_vars:
+      instance:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: true
+        podman_use_env_files: true
+        podman_build_repos:
+          - repo: https://github.com/crccheck/docker-hello-world.git
+            version: master
+            dest_dir: /root/docker-hello-world
+            image_name: hello-world
+        podman_networks:
+          - name: buildnet
+        podman_pods: []
+        podman_containers:
+          - name: hello
+            image: localhost/hello-world
+            tag: latest
+            publish:
+              - "8080:8000"
+            network:
+              - buildnet.network
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

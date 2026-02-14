@@ -35,6 +35,7 @@
           - "'[Pod]' in pod_quadlet.content | b64decode"
           - "'PodName=api' in pod_quadlet.content | b64decode"
           - "'PublishPort=8080:80' in pod_quadlet.content | b64decode"
+          - "'Network=shared.network' in pod_quadlet.content | b64decode"
         fail_msg: "api.pod quadlet content is incorrect: {{ pod_quadlet.content | b64decode }}"
 
     - name: Read api-web.container quadlet file

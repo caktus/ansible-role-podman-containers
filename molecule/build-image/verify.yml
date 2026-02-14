@@ -1,0 +1,86 @@
+---
+- name: Verify built image running as quadlet container
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Check quadlet directory exists
+      ansible.builtin.stat:
+        path: /root/.config/containers/systemd
+      register: quadlet_dir
+
+    - name: Assert quadlet directory was created
+      ansible.builtin.assert:
+        that: quadlet_dir.stat.isdir
+        fail_msg: "Quadlet directory not found."
+
+    - name: Find quadlet files
+      ansible.builtin.find:
+        paths: /root/.config/containers/systemd
+        patterns: "*.container,*.network"
+      register: quadlet_files
+
+    - name: Assert expected quadlet files exist
+      ansible.builtin.assert:
+        that:
+          - quadlet_files.files | map(attribute='path') | map('basename') | sort
+            == ['buildnet.network', 'hello.container']
+        fail_msg: >-
+          Expected 2 quadlet files (1 container + 1 network).
+          Found: {{ quadlet_files.files | map(attribute='path') | map('basename') | list }}
+
+    - name: Read hello.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/hello.container
+      register: hello_quadlet
+
+    - name: Assert hello container quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=hello' in hello_quadlet.content | b64decode"
+          - "'Image=localhost/hello-world:latest' in hello_quadlet.content | b64decode"
+          - "'PublishPort=8080:8000' in hello_quadlet.content | b64decode"
+          - "'Network=buildnet.network' in hello_quadlet.content | b64decode"
+        fail_msg: "hello.container quadlet content is incorrect: {{ hello_quadlet.content | b64decode }}"
+
+    # ------------------------------------------------------------------
+    # Verify the image was built from the git repo
+    # ------------------------------------------------------------------
+
+    - name: Check the cloned repo directory exists
+      ansible.builtin.stat:
+        path: /root/docker-hello-world
+      register: repo_dir
+
+    - name: Assert repo was cloned
+      ansible.builtin.assert:
+        that:
+          - repo_dir.stat.exists
+          - repo_dir.stat.isdir
+        fail_msg: "Git repo was not cloned to /root/docker-hello-world"
+
+    - name: List local images
+      ansible.builtin.command: podman images --format "{{ '{{' }}.Repository{{ '}}' }}:{{ '{{' }}.Tag{{ '}}' }}"
+      register: images
+      changed_when: false
+
+    - name: Assert hello-world image was built
+      ansible.builtin.assert:
+        that:
+          - "'localhost/hello-world' in images.stdout"
+        fail_msg: "hello-world image not found. Images: {{ images.stdout }}"
+
+    # ------------------------------------------------------------------
+    # Verify the container is actually running
+    # ------------------------------------------------------------------
+
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert hello container is running
+      ansible.builtin.assert:
+        that:
+          - "'hello' in containers.stdout"
+        fail_msg: "Container 'hello' not running. Running: {{ containers.stdout }}"
