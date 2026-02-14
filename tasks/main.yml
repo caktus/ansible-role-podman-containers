@@ -269,7 +269,16 @@
     log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"
     user: "{{ item.user | default(omit) }}"
     userns: "{{ item.userns | default(omit) }}"
-    hostname: "{{ item.hostname | default(omit) }}"
+    hostname: >-
+      {{ item.hostname
+         | default(
+             (podman_use_quadlets | bool)
+               | ternary(
+                   podman_container_inherit_hostname | ternary('%H', omit),
+                   podman_container_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)
+               )
+           )
+      }}
     # Use container's network if defined, otherwise fall back to podman_default_network.
     # Network should not be set for containers in a pod.
     # In quadlet mode, the default network gets a .network suffix so the quadlet
@@ -350,6 +359,16 @@
         replace: '"%H"'
       loop: "{{ podman_pods | map(attribute='name') }}"
       when: podman_pod_inherit_hostname
+
+    - name: Replace placeholder hostname in container units
+      ansible.builtin.replace:
+        path: "{{ podman_user_home }}/.config/systemd/user/container-{{ item.name }}.service"
+        regexp: "PLACEHOLDER_HOSTNAME"
+        replace: '"%H"'
+      loop: "{{ podman_containers }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: podman_container_inherit_hostname and not item.pod | default(false)
 
 ### Enable and start services ###
 - name: Reload systemd daemon

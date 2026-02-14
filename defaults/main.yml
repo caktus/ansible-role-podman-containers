@@ -55,8 +55,11 @@ podman_pods: []
 #       REDIS_URL: "redis://redis:6379/0"
 podman_containers: []
 
-# If pod hostname is unset, default to inheriting the host's hostname
+# If pod or container hostname is unset, default to inheriting the host's hostname.
+# In legacy mode, this sets hostname to %H in systemd units.
+# In quadlet mode, this sets hostname to %H in the quadlet file.
 podman_pod_inherit_hostname: no
+podman_container_inherit_hostname: no
 
 # Delete pods/containers before recreating. Use when changing network config.
 podman_delete_before_create: no

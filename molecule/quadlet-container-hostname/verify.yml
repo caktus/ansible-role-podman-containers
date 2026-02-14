@@ -1,0 +1,55 @@
+---
+- name: Verify quadlet containers with hostname inheritance
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert containers are running
+      ansible.builtin.assert:
+        that:
+          - "'web' in containers.stdout"
+          - "'redis' in containers.stdout"
+        fail_msg: "Missing containers. Running: {{ containers.stdout }}"
+
+    - name: Check web container quadlet file
+      ansible.builtin.slurp:
+        path: /root/.config/containers/systemd/web.container
+      register: web_quadlet
+
+    - name: Assert web container uses %H for hostname
+      ansible.builtin.assert:
+        that:
+          - '"HostName=%H" in (web_quadlet.content | b64decode)'
+        fail_msg: "Web container quadlet does not contain HostName=%H"
+
+    - name: Check redis container quadlet file
+      ansible.builtin.slurp:
+        path: /root/.config/containers/systemd/redis.container
+      register: redis_quadlet
+
+    - name: Assert redis container uses %H for hostname
+      ansible.builtin.assert:
+        that:
+          - '"HostName=%H" in (redis_quadlet.content | b64decode)'
+        fail_msg: "Redis container quadlet does not contain HostName=%H"
+
+    - name: Get hostname from web container
+      ansible.builtin.command: podman exec web hostname
+      register: web_hostname
+      changed_when: false
+
+    - name: Get host hostname
+      ansible.builtin.command: hostname
+      register: host_hostname
+      changed_when: false
+
+    - name: Assert web container has host hostname
+      ansible.builtin.assert:
+        that:
+          - web_hostname.stdout == host_hostname.stdout
+        fail_msg: "Container hostname '{{ web_hostname.stdout }}' does not match host hostname '{{ host_hostname.stdout }}'"
