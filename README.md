@@ -35,6 +35,59 @@ After deploying, test with `curl http://localhost:8080`.
 
 See [Podman Quadlet docs](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html) for `quadlet_options`.
 
+## Migration from Legacy podman_pod_name
+
+The `podman_pod_name` variable is deprecated. If you're upgrading from an older version:
+
+**Old approach (deprecated):**
+
+```yaml
+podman_pod_name: app
+
+podman_pods:
+  - name: "{{ podman_pod_name }}"
+    publish:
+      - 8080:80
+
+podman_containers:
+  - name: web
+    image: myapp
+    tag: latest
+    # Implicitly joins pod via podman_pod_name
+```
+
+**New approach (explicit pod assignment):**
+
+```yaml
+podman_pods:
+  - name: app
+    publish:
+      - 8080:80
+
+podman_containers:
+  - name: web
+    image: myapp
+    tag: latest
+    pod: app # Explicitly specify pod
+```
+
+**Or use networks (recommended for most use cases):**
+
+```yaml
+podman_use_quadlets: yes
+podman_default_network: app
+
+podman_networks:
+  - name: app
+
+podman_containers:
+  - name: web
+    image: myapp
+    tag: latest
+    publish:
+      - "8080:80"
+```
+
 ## Testing
 
 This role uses [Molecule](https://ansible.readthedocs.io/projects/molecule/) with the Podman driver for integration testing. Dependencies are managed with [uv](https://docs.astral.sh/uv/).
