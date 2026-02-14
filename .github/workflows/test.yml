@@ -39,13 +39,17 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install dependencies
-        run: uv sync
-
-      - name: Check podman version
+      - name: Check initial podman version
         run: podman --version
 
-      - name: Upgrade podman (Ubuntu 22.04)
+      - name: Add Kubic PPA for newer podman
+        run: |
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_24.04/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/libcontainers-archive-keyring.gpg
+          echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/libcontainers-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_24.04/ /" | sudo tee /etc/apt/sources.list.d/libcontainers.list > /dev/null
+        continue-on-error: true
+
+      - name: Install newer podman from Kubic PPA
         run: |
           sudo apt-get update
           sudo apt-get install -y podman
@@ -53,6 +57,9 @@ jobs:
 
       - name: Show upgraded podman version
         run: podman --version
+
+      - name: Install dependencies
+        run: uv sync
 
       - name: Run Molecule (${{ matrix.scenario }})
         run: uv run molecule test -s ${{ matrix.scenario }}
