@@ -42,5 +42,17 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Check podman version
+        run: podman --version
+
+      - name: Check podman info
+        run: |
+          podman info
+
+      - name: Check system info
+        run: |
+          uname -a
+          lsb_release -a || true
+
       - name: Run Molecule (${{ matrix.scenario }})
         run: uv run molecule test -s ${{ matrix.scenario }}
