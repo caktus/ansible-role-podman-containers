@@ -380,12 +380,16 @@
     scope: user
     enabled: true
     state: >-
-      {{
-        (
-          item.changed or
-          (container.results | selectattr('item.pod', 'defined') | selectattr('item.pod', 'equalto', item.item.name) | selectattr('changed', 'equalto', true) | list | length > 0)
-        ) | ternary('restarted', 'started')
-      }}
+      {{-
+        (item.changed or
+         (container.results
+          | selectattr('item.pod', 'defined')
+          | selectattr('item.pod', 'equalto', item.item.name)
+          | selectattr('changed', 'equalto', true)
+          | list
+          | length > 0))
+        | ternary('restarted', 'started')
+      -}}
   loop: "{{ pod.results }}"
   loop_control:
     label: "{{ item.item.name }}"
