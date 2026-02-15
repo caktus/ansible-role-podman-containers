@@ -62,5 +62,24 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
-      - name: Run Molecule (${{ matrix.scenario }})
-        run: uv run molecule test -s ${{ matrix.scenario }}
+      - name: Molecule dependency (${{ matrix.scenario }})
+        run: uv run molecule dependency -s ${{ matrix.scenario }}
+
+      - name: Molecule syntax (${{ matrix.scenario }})
+        run: uv run molecule syntax -s ${{ matrix.scenario }}
+
+      - name: Molecule create (${{ matrix.scenario }})
+        run: uv run molecule create -s ${{ matrix.scenario }}
+
+      - name: Molecule prepare (${{ matrix.scenario }})
+        run: uv run molecule prepare -s ${{ matrix.scenario }}
+
+      - name: Molecule converge (${{ matrix.scenario }})
+        run: uv run molecule converge -s ${{ matrix.scenario }}
+
+      - name: Molecule verify (${{ matrix.scenario }})
+        run: uv run molecule verify -s ${{ matrix.scenario }}
+
+      - name: Molecule destroy (${{ matrix.scenario }})
+        if: always()
+        run: uv run molecule destroy -s ${{ matrix.scenario }}
