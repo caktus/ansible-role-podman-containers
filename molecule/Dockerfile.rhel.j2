@@ -5,7 +5,7 @@ ENV container=podman
 # Install packages needed by the role and molecule
 RUN dnf install -y \
         systemd \
-        python3 sudo bash git openssh-clients \
+        python3 sudo bash git openssh-clients hostname \
         podman dbus fuse-overlayfs ca-certificates nftables && \
     dnf clean all && \
     # Remove unnecessary systemd services that may interfere in containers
