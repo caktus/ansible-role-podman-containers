@@ -28,6 +28,12 @@
         name: network-online.target
         state: started
 
+    - name: Ensure dbus socket is active (required for user sessions)
+      ansible.builtin.systemd:
+        name: dbus.socket
+        state: started
+        enabled: true
+
     - name: Start user systemd instance for root (user@0)
       ansible.builtin.systemd:
         name: user@0.service
