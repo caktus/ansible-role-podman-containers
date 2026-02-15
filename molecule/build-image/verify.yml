@@ -84,25 +84,22 @@
           - "'hello' in containers.stdout"
         fail_msg: "Container 'hello' not running. Running: {{ containers.stdout }}"
 
-    - name: Get response from hello-world container
-      ansible.builtin.get_url:
+    - name: Test hello container via HTTP
+      ansible.builtin.uri:
         url: http://localhost:8080
-        dest: /tmp/hello-response.txt
+        method: GET
         timeout: 10
+        return_content: yes
       retries: 3
       delay: 5
       register: hello_response
-      until: hello_response is succeeded
-
-    - name: Read response content
-      ansible.builtin.slurp:
-        src: /tmp/hello-response.txt
-      register: hello_content
+      until: hello_response.status == 200
 
     - name: Assert hello world is in the response
       ansible.builtin.assert:
         that:
-          - "'hello world' in hello_content.content | b64decode | lower"
+          - hello_response.status == 200
+          - "'hello world' in hello_response.content | lower"
         fail_msg: |-
           'hello world' not found in response.
-          Response: {{ hello_content.content | b64decode }}
+          Response: {{ hello_response.content }}
