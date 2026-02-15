@@ -138,10 +138,17 @@ This role uses [Molecule](https://ansible.readthedocs.io/projects/molecule/) wit
 
 ```bash
 # Install dependencies
-uv sync --python 3.13
+uv sync --locked
 ```
 
 **Requirements:** Podman must be installed on the host machine.
+
+### Code Quality
+
+```bash
+# Run pre-commit checks (linting, formatting, etc.)
+uv run pre-commit run --all-files
+```
 
 ### Running Tests
 

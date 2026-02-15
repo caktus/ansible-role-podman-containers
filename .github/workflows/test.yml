@@ -31,7 +31,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Run pre-commit checks
         run: uv run pre-commit run --all-files
@@ -42,6 +42,7 @@ jobs:
       fail-fast: false
       matrix:
         scenario:
+          - default
           - build-image
           - legacy-pod
           - legacy-container-hostname
@@ -59,7 +60,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Run Molecule (${{ matrix.scenario }})
         run: uv run molecule test -s ${{ matrix.scenario }}
