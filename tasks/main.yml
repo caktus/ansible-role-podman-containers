@@ -347,7 +347,7 @@
     - name: Replace %H with quoted "%H" in pod units (legacy mode)
       ansible.builtin.replace:
         path: "{{ podman_user_home }}/.config/systemd/user/pod-{{ item.name }}.service"
-        regexp: '(?<!")[%]H(?!")'
+        regexp: '(?<!")%H(?!")'
         replace: '"%H"'
       loop: "{{ podman_pods }}"
       loop_control:
@@ -357,7 +357,7 @@
     - name: Replace %H with quoted "%H" in container units (legacy mode)
       ansible.builtin.replace:
         path: "{{ podman_user_home }}/.config/systemd/user/container-{{ item.name }}.service"
-        regexp: '(?<!")[%]H(?!")'
+        regexp: '(?<!")%H(?!")'
         replace: '"%H"'
       loop: "{{ podman_containers }}"
       loop_control:

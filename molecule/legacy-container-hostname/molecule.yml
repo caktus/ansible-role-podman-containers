@@ -1,6 +1,6 @@
 ---
 # Scenario: Legacy mode with standalone containers that inherit the host's hostname.
-# Tests hostname inheritance behavior for containers not in a pod using direct hostname: "%H"
+# Tests hostname inheritance behavior for containers not in a pod using direct hostname: "%H".
 driver:
   name: podman
 
