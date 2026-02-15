@@ -146,8 +146,8 @@ uv sync --python 3.13
 ### Running Tests
 
 ```bash
-# Run all scenarios
-uv run molecule test --all
+# Run the default scenario (recommended for quick testing)
+uv run molecule test
 
 # Or run specific scenarios
 uv run molecule test -s build-image
@@ -157,6 +157,9 @@ uv run molecule test -s quadlet
 uv run molecule test -s quadlet-default-network
 uv run molecule test -s quadlet-pod
 uv run molecule test -s quadlet-container-hostname
+
+# Or run all scenarios
+uv run molecule test --all
 
 # Or run individual steps for a scenario
 export SCENARIO=quadlet
@@ -170,6 +173,7 @@ uv run molecule destroy -s $SCENARIO   # Tear down
 
 | Scenario                     | Mode    | What it tests                                                                       |
 | ---------------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `default`                    | Quadlet | README quickstart example (single container, shared network, HTTP endpoint)         |
 | `build-image`                | N/A     | Builds the systemd-enabled test container image                                     |
 | `legacy-pod`                 | Legacy  | Pod with multiple containers, `podman generate systemd`                             |
 | `legacy-container-hostname`  | Legacy  | Standalone containers with host hostname inheritance                                |
