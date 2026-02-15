@@ -34,20 +34,34 @@
           enabled: true
       register: dbus_start
 
-    - name: Wait for dbus socket to be fully active
-      ansible.builtin.systemd:
-        name: dbus.socket
-        state: started
+    - name: Ensure dbus-broker service is running
+      ansible.builtin.command: systemctl is-active dbus-broker.service
+      register: dbus_broker_check
+      changed_when: false
       retries: 10
       delay: 1
-      register: dbus_check
-      until: dbus_check is success
+      until: dbus_broker_check.rc == 0
+      failed_when: false
+
+    - name: Trigger dbus socket to start broker if needed
+      ansible.builtin.command: dbus-send --system --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.Peer.Ping
+      changed_when: false
+      failed_when: false
+      when: dbus_broker_check.rc != 0
+
+    - name: Wait for dbus system bus to be accessible
+      ansible.builtin.command: systemctl is-active dbus-broker.service
+      register: dbus_final_check
+      changed_when: false
+      retries: 10
+      delay: 1
+      until: dbus_final_check.rc == 0
 
     - name: Start user systemd instance for root (user@0)
       ansible.builtin.systemd:
         name: user@0.service
         state: started
-      retries: 5
+      retries: 3
       delay: 2
       register: user_systemd
       until: user_systemd is success
