@@ -33,10 +33,12 @@ provisioner:
             image: docker.io/traefik/whoami
             tag: latest
             hostname: "%H"
+            pull: missing
           - name: redis
             image: docker.io/redis
             tag: "7-alpine"
             hostname: "%H"
+            pull: missing
 
 scenario:
   test_sequence:
