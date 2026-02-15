@@ -23,39 +23,23 @@
       delay: 1
       until: systemd_status.rc == 0 or 'degraded' in systemd_status.stdout
 
-    - name: Start required systemd services for user sessions
+    - name: Start network-online.target
       ansible.builtin.systemd:
-        name: "{{ item.name }}"
+        name: network-online.target
         state: started
-        enabled: "{{ item.enabled | default(omit) }}"
-      loop:
-        - name: network-online.target
-        - name: dbus.socket
-          enabled: true
-      register: dbus_start
 
-    - name: Ensure dbus-broker service is running
-      ansible.builtin.command: systemctl is-active dbus-broker.service
-      register: dbus_broker_check
-      changed_when: false
-      retries: 10
-      delay: 1
-      until: dbus_broker_check.rc == 0
+    - name: Start dbus service (RHEL/CentOS uses dbus-broker)
+      ansible.builtin.systemd:
+        name: dbus-broker.service
+        state: started
+      register: dbus_broker
       failed_when: false
 
-    - name: Trigger dbus socket to start broker if needed
-      ansible.builtin.command: dbus-send --system --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.Peer.Ping
-      changed_when: false
-      failed_when: false
-      when: dbus_broker_check.rc != 0
-
-    - name: Wait for dbus system bus to be accessible
-      ansible.builtin.command: systemctl is-active dbus-broker.service
-      register: dbus_final_check
-      changed_when: false
-      retries: 10
-      delay: 1
-      until: dbus_final_check.rc == 0
+    - name: Start dbus service (Ubuntu/Debian uses dbus.service)
+      ansible.builtin.systemd:
+        name: dbus.service
+        state: started
+      when: dbus_broker is failed
 
     - name: Start user systemd instance for root (user@0)
       ansible.builtin.systemd:
