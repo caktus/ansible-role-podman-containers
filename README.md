@@ -110,27 +110,25 @@ podman_containers:
 
 In both legacy and quadlet modes, systemd's `%H` specifier dynamically sets the hostname at container startup.
 
-### Migration from Global Flags
+### Migration from podman_pod_inherit_hostname
 
-**Deprecated:** `podman_pod_inherit_hostname` and `podman_container_inherit_hostname` are deprecated and will be removed in a future version.
+**Deprecated:** `podman_pod_inherit_hostname` is deprecated and will be removed in a future version.
 
 **Before (deprecated):**
 
 ```yaml
-podman_container_inherit_hostname: yes  # Applied to ALL containers
+podman_pod_inherit_hostname: yes  # Applied to ALL pods
 
-podman_containers:
-  - name: web
-    image: myapp:latest
+podman_pods:
+  - name: webapp
 ```
 
 **After (recommended):**
 
 ```yaml
-podman_containers:
-  - name: web
-    image: myapp:latest
-    hostname: "%H"  # Explicit per-container opt-in
+podman_pods:
+  - name: webapp
+    hostname: "%H"  # Explicit per-pod opt-in
 ```
 
 ## Testing
