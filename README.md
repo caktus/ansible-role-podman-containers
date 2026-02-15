@@ -16,6 +16,9 @@ See `defaults/main.yml` for all supported variables, defaults, and examples.
 ## Quick Start
 
 ```yaml
+podman_user: mydeployuser
+podman_user_home: /home/mydeployuser
+
 podman_use_quadlets: yes
 podman_default_network: app
 

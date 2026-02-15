@@ -1,0 +1,52 @@
+---
+# Default scenario: README Quick Start
+# Tests the exact configuration from the README quick start guide.
+# Deploys a single whoami container on a shared network and verifies it responds to HTTP requests.
+driver:
+  name: podman
+
+platforms:
+  - name: instance
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: ../prepare.yml
+    converge: ../converge.yml
+  inventory:
+    host_vars:
+      instance:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: yes
+        podman_default_network: app
+        podman_networks:
+          - name: "{{ podman_default_network }}"
+        podman_containers:
+          - name: whoami
+            image: docker.io/traefik/whoami
+            tag: latest
+            # No network specified - uses podman_default_network
+            publish:
+              - "8080:80"
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible
