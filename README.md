@@ -39,7 +39,7 @@ See [Podman Quadlet docs](https://docs.podman.io/en/latest/markdown/podman-syste
 
 This section covers migrating from older versions of the role.
 
-### Migrating from podman_pod_name (removed)
+### Migrating from `podman_pod_name` (removed)
 
 The `podman_pod_name` variable has been removed and no longer has any effect.
 
@@ -94,7 +94,7 @@ podman_containers:
       - "8080:80"
 ```
 
-### Migrating from podman_pod_inherit_hostname (removed)
+### Migrating from `podman_pod_inherit_hostname` (removed)
 
 `podman_pod_inherit_hostname` has been removed and no longer has any effect.
 
