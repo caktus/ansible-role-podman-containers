@@ -35,11 +35,17 @@ After deploying, test with `curl http://localhost:8080`.
 
 See [Podman Quadlet docs](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html) for `quadlet_options`.
 
-## Migration from Legacy podman_pod_name
+## Upgrade Guide
 
-The `podman_pod_name` variable is deprecated. If you're upgrading from an older version:
+This section covers migrating from older versions of the role.
 
-**Old approach (deprecated):**
+### Migrating from podman_pod_name (removed)
+
+The `podman_pod_name` variable has been removed and no longer has any effect.
+
+**If you were using podman_pod_name** to automatically assign containers to pods:
+
+**Old approach (removed):**
 
 ```yaml
 podman_pod_name: app
@@ -88,33 +94,13 @@ podman_containers:
       - "8080:80"
 ```
 
-## Hostname Inheritance
+### Migrating from podman_pod_inherit_hostname (removed)
 
-By default, pods and containers use their own hostnames. To inherit the host's hostname, set `hostname: "%H"` directly on the container or pod:
+`podman_pod_inherit_hostname` has been removed and no longer has any effect.
 
-**Example:**
+**If you were using podman_pod_inherit_hostname** to make all pods inherit the host's hostname:
 
-```yaml
-podman_use_quadlets: yes
-
-podman_containers:
-  - name: web
-    image: docker.io/traefik/whoami
-    tag: latest
-    hostname: "%H" # Inherits host's hostname
-
-  - name: app
-    image: myapp:latest
-    hostname: custom-name # Uses custom hostname
-```
-
-In both legacy and quadlet modes, systemd's `%H` specifier dynamically sets the hostname at container startup.
-
-### Migration from podman_pod_inherit_hostname
-
-**Removed:** `podman_pod_inherit_hostname` has been removed and no longer has any effect.
-
-**Before (removed):**
+**Old approach (removed):**
 
 ```yaml
 podman_pod_inherit_hostname: yes # Applied to ALL pods
@@ -123,12 +109,22 @@ podman_pods:
   - name: webapp
 ```
 
-**After (recommended):**
+**New approach (explicit per-pod opt-in):**
 
 ```yaml
 podman_pods:
   - name: webapp
     hostname: "%H" # Explicit per-pod opt-in
+```
+
+For containers (not in a pod):
+
+```yaml
+podman_containers:
+  - name: web
+    image: myapp
+    tag: latest
+    hostname: "%H" # Inherits host's hostname
 ```
 
 ## Testing

@@ -5,12 +5,12 @@
   args:
     creates: "/var/lib/systemd/linger/{{ podman_user }}"
 
-- name: Warn about deprecated podman_pod_name
+- name: Warn about removed podman_pod_name
   ansible.builtin.debug:
     msg: |
-      *** WARNING: podman_pod_name is DEPRECATED ***
-      The podman_pod_name variable no longer automatically assigns containers to pods.
-      To put containers in a pod, explicitly set 'pod: pod_name' on each container.
+      *** WARNING: podman_pod_name has been REMOVED ***
+      This variable no longer has any effect. To put containers in a pod,
+      explicitly set 'pod: pod_name' on each container.
       For network-based setups, use podman_networks with podman_use_quadlets: yes instead.
       See the README for migration examples.
   when: podman_pod_name is defined and not podman_use_quadlets

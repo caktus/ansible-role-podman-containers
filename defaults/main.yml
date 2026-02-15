@@ -21,8 +21,10 @@ podman_directories:
 #     image_name: my_repo
 podman_build_repos: []
 
-# DEPRECATED: podman_pod_name may be removed in a future version.
-# Use podman_networks with podman_use_quadlets: yes instead.
+# REMOVED: podman_pod_name has been removed and no longer has any effect.
+# To put containers in a pod, explicitly set 'pod: pod_name' on each container.
+# For network-based setups, use podman_networks with podman_use_quadlets: yes instead.
+# See the README for migration examples.
 # podman_pod_name: app
 
 # Default network for containers that don't specify their own network.
