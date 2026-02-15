@@ -147,6 +147,9 @@ uv sync --python 3.13
 
 ```bash
 # Run all scenarios
+uv run molecule test --all
+
+# Or run specific scenarios
 uv run molecule test -s build-image
 uv run molecule test -s legacy-pod
 uv run molecule test -s legacy-container-hostname
@@ -156,10 +159,11 @@ uv run molecule test -s quadlet-pod
 uv run molecule test -s quadlet-container-hostname
 
 # Or run individual steps for a scenario
-uv run molecule create -s quadlet    # Create the test container
-uv run molecule converge -s quadlet  # Apply the role
-uv run molecule verify -s quadlet    # Run assertions
-uv run molecule destroy -s quadlet   # Tear down
+export SCENARIO=quadlet
+uv run molecule create -s $SCENARIO    # Create the test container
+uv run molecule converge -s $SCENARIO  # Apply the role
+uv run molecule verify -s $SCENARIO    # Run assertions
+uv run molecule destroy -s $SCENARIO   # Tear down
 ```
 
 ### Test Scenarios
