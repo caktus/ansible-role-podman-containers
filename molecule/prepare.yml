@@ -23,18 +23,13 @@
       delay: 1
       until: systemd_status.rc == 0 or 'degraded' in systemd_status.stdout
 
-    - name: Activate network-online.target for quadlet services
+    - name: Start required systemd services for user sessions
       ansible.builtin.systemd:
-        name: network-online.target
+        name: "{{ item.name }}"
         state: started
-
-    - name: Ensure dbus socket is active (required for user sessions)
-      ansible.builtin.systemd:
-        name: dbus.socket
-        state: started
-        enabled: true
-
-    - name: Start user systemd instance for root (user@0)
-      ansible.builtin.systemd:
-        name: user@0.service
-        state: started
+        enabled: "{{ item.enabled | default(omit) }}"
+      loop:
+        - name: network-online.target
+        - name: dbus.socket
+          enabled: true
+        - name: user@0.service
