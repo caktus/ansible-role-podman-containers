@@ -354,7 +354,7 @@
       when:
         - pod.changed or container.changed
         - item.hostname is defined
-        - '"%H" in item.hostname'
+        - "%H in (item.hostname | string)"
 
     - name: Replace %H with quoted "%H" in container units (legacy mode)
       ansible.builtin.replace:
@@ -368,7 +368,7 @@
         - not item.pod | default(false)
         - container.changed
         - item.hostname is defined
-        - '"%H" in item.hostname'
+        - "%H in (item.hostname | string)"
 
 ### Enable and start services ###
 - name: Reload systemd daemon
