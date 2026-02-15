@@ -1,11 +1,34 @@
 ---
 # Shared prepare playbook for all molecule scenarios.
+# Waits for the systemd-based container to fully initialize before converge.
 - name: Prepare instance
   hosts: all
   gather_facts: false
 
   tasks:
-    - name: Start user systemd instance
+    - name: Wait for container to be ready
+      ansible.builtin.wait_for_connection:
+        delay: 2
+        timeout: 60
+
+    - name: Ensure Ansible tmp directory exists
+      ansible.builtin.raw: mkdir -p /root/.ansible/tmp && chmod 700 /root/.ansible/tmp
+      changed_when: false
+
+    - name: Wait for systemd to initialize
+      ansible.builtin.shell: systemctl is-system-running || systemctl is-system-running | grep -q degraded
+      register: systemd_status
+      changed_when: false
+      retries: 30
+      delay: 1
+      until: systemd_status.rc == 0 or 'degraded' in systemd_status.stdout
+
+    - name: Activate network-online.target for quadlet services
       ansible.builtin.systemd:
-        name: "user@0.service"
+        name: network-online.target
+        state: started
+
+    - name: Start user systemd instance for root (user@0)
+      ansible.builtin.systemd:
+        name: user@0.service
         state: started
