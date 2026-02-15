@@ -36,6 +36,10 @@ RUN printf '[network]\ndefault_subnet = "10.89.0.0/16"\n' > /etc/containers/cont
 RUN mkdir -p /run/user/0 && chmod 700 /run/user/0 && \
     mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/root
 
+# Set root password to fix PAM authentication for user@0.service
+# The password hash is for "root" but it's not actually used for login
+RUN echo 'root:root' | chpasswd
+
 ENV XDG_RUNTIME_DIR=/run/user/0
 
 VOLUME ["/sys/fs/cgroup"]
