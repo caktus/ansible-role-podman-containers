@@ -24,9 +24,9 @@
       ansible.builtin.assert:
         that:
           - quadlet_files.files | map(attribute='path') | map('basename') | sort
-            == ['buildnet.network', 'hello.container']
+            == ['hello.container']
         fail_msg: >-
-          Expected 2 quadlet files (1 container + 1 network).
+          Expected 1 quadlet file (hello.container).
           Found: {{ quadlet_files.files | map(attribute='path') | map('basename') | list }}
 
     - name: Read hello.container quadlet file
@@ -40,7 +40,6 @@
           - "'ContainerName=hello' in hello_quadlet.content | b64decode"
           - "'Image=localhost/hello-world:latest' in hello_quadlet.content | b64decode"
           - "'PublishPort=8080:8000' in hello_quadlet.content | b64decode"
-          - "'Network=buildnet.network' in hello_quadlet.content | b64decode"
         fail_msg: "hello.container quadlet content is incorrect: {{ hello_quadlet.content | b64decode }}"
 
     # ------------------------------------------------------------------

@@ -31,8 +31,6 @@ provisioner:
             version: master
             dest_dir: /root/docker-hello-world
             image_name: hello-world
-        podman_networks:
-          - name: buildnet
         podman_pods: []
         podman_containers:
           - name: hello
@@ -40,8 +38,6 @@ provisioner:
             tag: latest
             publish:
               - "8080:8000"
-            network:
-              - buildnet.network
 
 scenario:
   test_sequence:
