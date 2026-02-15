@@ -5,9 +5,18 @@ driver:
   name: podman
 
 platforms:
-  - name: instance
+  - name: ubuntu
     image: docker.io/library/ubuntu:questing
     dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+  - name: rhel
+    image: quay.io/centos/centos:stream9
+    dockerfile: ../Dockerfile.rhel.j2
     command: ""
     pre_build_image: false
     privileged: true
@@ -20,8 +29,8 @@ provisioner:
     prepare: ../prepare.yml
     converge: ../converge.yml
   inventory:
-    host_vars:
-      instance:
+    group_vars:
+      all:
         podman_user: root
         podman_user_home: /root
         podman_use_quadlets: false
