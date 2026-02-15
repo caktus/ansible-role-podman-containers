@@ -56,8 +56,8 @@
     - name: Write container environment files
       ansible.builtin.copy:
         content: |
-          {% for key, value in item.env.items() %}
-          {{ key }}={{ value | string | regex_replace('\n', '\\n') | quote }}
+          {% for key in (item.env.keys() | sort) %}
+          {{ key }}={{ item.env[key] | string | regex_replace('\n', '\\n') }}
           {% endfor %}
         dest: "{{ podman_env_file_dir }}/{{ item.name }}.env"
         mode: "0600"
@@ -256,14 +256,7 @@
     entrypoint: "{{ item.entrypoint | default(omit) }}"
     workdir: "{{ item.workdir | default(omit) }}"
     volumes: "{{ item.volumes | default(omit) }}"
-    env: >-
-      {%- if podman_use_env_files and item.env is defined -%}
-        {{ {'ENV_FILE_CHECKSUM': (item.env | to_json | hash('sha256'))[:16]} }}
-      {%- elif item.env is defined -%}
-        {{ item.env }}
-      {%- else -%}
-        {{ omit }}
-      {%- endif -%}
+    env: "{{ item.env | default(omit) }}"
     env_file: "{{ item.env_file | default((podman_use_env_files and item.env is defined) | ternary([podman_env_file_dir ~ '/' ~ item.name ~ '.env'], omit)) }}"
     log_driver: "{{ item.log_driver | default(podman_log_driver) | default(omit) }}"
     log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"
@@ -305,7 +298,12 @@
     cap_drop: "{{ item.cap_drop | default(omit) }}"
     security_opt: "{{ item.security_opt | default(omit) }}"
     read_only: "{{ item.read_only | default(omit) }}"
-    label: "{{ item.label | default(omit) }}"
+    label: >-
+      {%- if podman_use_env_files and item.env is defined -%}
+        {{ (item.label | default({})) | combine({'io.podman.env_file_checksum': (item.env | to_json | hash('sha256'))[:16]}) }}
+      {%- else -%}
+        {{ item.label | default(omit) }}
+      {%- endif -%}
     secrets: "{{ item.secrets | default(omit) }}"
     restart_policy: "{{ item.restart_policy | default(omit) }}"
     rm: "{{ item.rm | default(omit) }}"
@@ -381,7 +379,17 @@
     name: "{{ podman_use_quadlets | ternary(item.item.name ~ '-pod.service', 'pod-' ~ item.item.name) }}"
     scope: user
     enabled: true
-    state: "{{ item.changed | ternary('restarted', 'started') }}"
+    state: "{{ (item.changed or pod_containers_changed) | ternary('restarted', 'started') }}"
+  vars:
+    pod_containers_changed: >-
+      {{
+        container.results
+        | selectattr('item.pod', 'defined')
+        | selectattr('item.pod', 'equalto', item.item.name)
+        | selectattr('changed', 'equalto', true)
+        | list
+        | length > 0
+      }}
   loop: "{{ pod.results }}"
   loop_control:
     label: "{{ item.item.name }}"
