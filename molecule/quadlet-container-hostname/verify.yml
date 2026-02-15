@@ -54,9 +54,31 @@
           - web_hostname.stdout == host_hostname.stdout
         fail_msg: "Container hostname '{{ web_hostname.stdout }}' does not match host hostname '{{ host_hostname.stdout }}'"
 
-    - name: Verify web container is listening on published port
-      ansible.builtin.wait_for:
-        host: localhost
-        port: 80
-        timeout: 5
-        state: started
+    - name: Fetch response from web container via published port
+      ansible.builtin.get_url:
+        url: http://localhost:80
+        dest: /tmp/web-response.txt
+        timeout: 10
+      retries: 3
+      delay: 5
+      register: web_response
+      until: web_response is succeeded
+
+    - name: Read whoami response
+      ansible.builtin.slurp:
+        src: /tmp/web-response.txt
+      register: whoami_response
+
+    - name: Display whoami response
+      ansible.builtin.debug:
+        msg: |
+          Whoami response:
+          {{ whoami_response.content | b64decode }}
+
+    - name: Assert hostname appears in whoami response
+      ansible.builtin.assert:
+        that:
+          - "host_hostname.stdout | lower in (whoami_response.content | b64decode | lower)"
+        fail_msg: |
+          Hostname '{{ host_hostname.stdout }}' not found in whoami response.
+          Response: {{ whoami_response.content | b64decode }}
