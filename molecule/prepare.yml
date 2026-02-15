@@ -28,18 +28,11 @@
         name: network-online.target
         state: started
 
-    - name: Start dbus service (RHEL/CentOS uses dbus-broker)
+    - name: Start dbus socket (socket-activated on RHEL/CentOS via dbus-broker)
       ansible.builtin.systemd:
-        name: dbus-broker.service
+        name: dbus.socket
         state: started
-      register: dbus_broker
-      failed_when: false
-
-    - name: Start dbus service (Ubuntu/Debian uses dbus.service)
-      ansible.builtin.systemd:
-        name: dbus.service
-        state: started
-      when: dbus_broker is failed
+        enabled: true
 
     - name: Start user systemd instance for root (user@0)
       ansible.builtin.systemd:
