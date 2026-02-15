@@ -53,3 +53,10 @@
         that:
           - web_hostname.stdout == host_hostname.stdout
         fail_msg: "Container hostname '{{ web_hostname.stdout }}' does not match host hostname '{{ host_hostname.stdout }}'"
+
+    - name: Verify web container is listening on published port
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 80
+        timeout: 5
+        state: started

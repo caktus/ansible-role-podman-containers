@@ -34,6 +34,8 @@ provisioner:
             tag: latest
             hostname: "%H"
             pull: missing
+            publish:
+              - "80:80"
           - name: redis
             image: docker.io/redis
             tag: "7-alpine"
