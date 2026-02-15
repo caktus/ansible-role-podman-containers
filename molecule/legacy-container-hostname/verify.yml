@@ -18,7 +18,7 @@
 
     - name: Check web container systemd unit
       ansible.builtin.slurp:
-        path: /root/.config/systemd/user/container-web.service
+        src: /root/.config/systemd/user/container-web.service
       register: web_unit
 
     - name: Assert web container uses %H for hostname
@@ -29,7 +29,7 @@
 
     - name: Check redis container systemd unit
       ansible.builtin.slurp:
-        path: /root/.config/systemd/user/container-redis.service
+        src: /root/.config/systemd/user/container-redis.service
       register: redis_unit
 
     - name: Assert redis container uses %H for hostname

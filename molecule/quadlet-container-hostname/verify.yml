@@ -18,7 +18,7 @@
 
     - name: Check web container quadlet file
       ansible.builtin.slurp:
-        path: /root/.config/containers/systemd/web.container
+        src: /root/.config/containers/systemd/web.container
       register: web_quadlet
 
     - name: Assert web container uses %H for hostname
@@ -29,7 +29,7 @@
 
     - name: Check redis container quadlet file
       ansible.builtin.slurp:
-        path: /root/.config/containers/systemd/redis.container
+        src: /root/.config/containers/systemd/redis.container
       register: redis_quadlet
 
     - name: Assert redis container uses %H for hostname
