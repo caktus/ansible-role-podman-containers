@@ -101,11 +101,11 @@ podman_containers:
   - name: web
     image: docker.io/traefik/whoami
     tag: latest
-    hostname: "%H"  # Inherits host's hostname
-  
+    hostname: "%H" # Inherits host's hostname
+
   - name: app
     image: myapp:latest
-    hostname: custom-name  # Uses custom hostname
+    hostname: custom-name # Uses custom hostname
 ```
 
 In both legacy and quadlet modes, systemd's `%H` specifier dynamically sets the hostname at container startup.
@@ -117,7 +117,7 @@ In both legacy and quadlet modes, systemd's `%H` specifier dynamically sets the 
 **Before (deprecated):**
 
 ```yaml
-podman_pod_inherit_hostname: yes  # Applied to ALL pods
+podman_pod_inherit_hostname: yes # Applied to ALL pods
 
 podman_pods:
   - name: webapp
@@ -128,7 +128,7 @@ podman_pods:
 ```yaml
 podman_pods:
   - name: webapp
-    hostname: "%H"  # Explicit per-pod opt-in
+    hostname: "%H" # Explicit per-pod opt-in
 ```
 
 ## Testing

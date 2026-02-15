@@ -351,7 +351,10 @@
       loop: "{{ podman_pods }}"
       loop_control:
         label: "{{ item.name }}"
-      when: item.hostname is defined and '%H' in item.hostname
+      when:
+        - pod.changed or container.changed
+        - item.hostname is defined
+        - '"%H" in item.hostname'
 
     - name: Replace %H with quoted "%H" in container units (legacy mode)
       ansible.builtin.replace:
@@ -361,7 +364,11 @@
       loop: "{{ podman_containers }}"
       loop_control:
         label: "{{ item.name }}"
-      when: not item.pod | default(false) and item.hostname is defined and '%H' in item.hostname
+      when:
+        - not item.pod | default(false)
+        - container.changed
+        - item.hostname is defined
+        - '"%H" in item.hostname'
 
 ### Enable and start services ###
 - name: Reload systemd daemon
