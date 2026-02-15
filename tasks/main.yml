@@ -379,17 +379,17 @@
     name: "{{ podman_use_quadlets | ternary(item.item.name ~ '-pod.service', 'pod-' ~ item.item.name) }}"
     scope: user
     enabled: true
-    state: >-
-      {{-
-        (item.changed or
-         (container.results
-          | selectattr('item.pod', 'defined')
-          | selectattr('item.pod', 'equalto', item.item.name)
-          | selectattr('changed', 'equalto', true)
-          | list
-          | length > 0))
-        | ternary('restarted', 'started')
-      -}}
+    state: "{{ (item.changed or pod_containers_changed) | ternary('restarted', 'started') }}"
+  vars:
+    pod_containers_changed: >-
+      {{
+        container.results
+        | selectattr('item.pod', 'defined')
+        | selectattr('item.pod', 'equalto', item.item.name)
+        | selectattr('changed', 'equalto', true)
+        | list
+        | length > 0
+      }}
   loop: "{{ pod.results }}"
   loop_control:
     label: "{{ item.item.name }}"
