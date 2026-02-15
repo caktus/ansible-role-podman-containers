@@ -93,8 +93,8 @@
       ansible.builtin.fail:
         msg: |
           user@0.service failed to start. This is typically caused by:
-          - dbus not being properly initialized (check dbus.socket and dbus-broker.service status above)
+          - dbus not being properly initialized (check dbus.socket and dbus-broker.service status in logs above)
           - XDG_RUNTIME_DIR not being set correctly
           - systemd user mode prerequisites not being met
-          Review the systemctl status and journalctl logs above for details.
+          Review the systemctl status and journalctl logs above for detailed error information.
       when: user_systemd is failed
