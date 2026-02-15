@@ -43,10 +43,10 @@
     - name: Wait for dbus-broker to be active
       ansible.builtin.command: systemctl is-active dbus-broker.service
       changed_when: false
+      register: dbus_broker_active
       retries: 10
       delay: 1
       until: dbus_broker_active.rc == 0
-      register: dbus_broker_active
       failed_when: false
 
     - name: Debug - Check dbus socket status

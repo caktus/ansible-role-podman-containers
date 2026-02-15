@@ -37,7 +37,8 @@ RUN mkdir -p /run/user/0 && chmod 700 /run/user/0 && \
     mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/root
 
 # Set root password to fix PAM authentication for user@0.service
-# The password hash is for "root" but it's not actually used for login
+# PAM requires password authentication info; setting a plaintext password
+# resolves "could not obtain user info" errors when starting user@0.service
 RUN echo 'root:root' | chpasswd
 
 ENV XDG_RUNTIME_DIR=/run/user/0
