@@ -20,6 +20,7 @@ provisioner:
   name: ansible
   playbooks:
     prepare: ../prepare.yml
+    converge: ../converge.yml
   inventory:
     host_vars:
       instance:
