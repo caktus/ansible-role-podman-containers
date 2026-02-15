@@ -55,9 +55,9 @@ podman_pods: []
 #       REDIS_URL: "redis://redis:6379/0"
 podman_containers: []
 
-# DEPRECATED: podman_pod_inherit_hostname is deprecated.
-# Instead, set hostname: "%H" directly on pods that should inherit the host's hostname.
-# This variable will be removed in a future version.
+# REMOVED: podman_pod_inherit_hostname has been removed and no longer has any effect.
+# Instead, set hostname: "%H" directly on pods or containers that should
+# inherit the host's hostname. See the README for examples.
 # podman_pod_inherit_hostname: no
 
 # Delete pods/containers before recreating. Use when changing network config.

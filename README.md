@@ -112,9 +112,9 @@ In both legacy and quadlet modes, systemd's `%H` specifier dynamically sets the 
 
 ### Migration from podman_pod_inherit_hostname
 
-**Deprecated:** `podman_pod_inherit_hostname` is deprecated and will be removed in a future version.
+**Removed:** `podman_pod_inherit_hostname` has been removed and no longer has any effect.
 
-**Before (deprecated):**
+**Before (removed):**
 
 ```yaml
 podman_pod_inherit_hostname: yes # Applied to ALL pods
