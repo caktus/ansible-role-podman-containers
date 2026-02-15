@@ -44,9 +44,11 @@ jobs:
         scenario:
           - build-image
           - legacy-pod
+          - legacy-container-hostname
           - quadlet
           - quadlet-default-network
           - quadlet-pod
+          - quadlet-container-hostname
     steps:
       - name: Checkout
         uses: actions/checkout@v4

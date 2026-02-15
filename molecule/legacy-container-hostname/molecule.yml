@@ -1,0 +1,55 @@
+---
+# Scenario: Legacy mode with standalone containers that inherit the host's hostname.
+# Tests hostname inheritance behavior for containers not in a pod using direct hostname: "%H".
+driver:
+  name: podman
+
+platforms:
+  - name: instance
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: ../prepare.yml
+  inventory:
+    host_vars:
+      instance:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: false
+        podman_use_env_files: true
+        podman_build_repos: []
+        podman_networks: []
+        podman_pods: []
+        podman_containers:
+          - name: web
+            image: docker.io/traefik/whoami
+            tag: latest
+            hostname: "%H"
+            pull: missing
+          - name: redis
+            image: docker.io/redis
+            tag: "7-alpine"
+            hostname: "%H"
+            pull: missing
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

@@ -88,6 +88,49 @@ podman_containers:
       - "8080:80"
 ```
 
+## Hostname Inheritance
+
+By default, pods and containers use their own hostnames. To inherit the host's hostname, set `hostname: "%H"` directly on the container or pod:
+
+**Example:**
+
+```yaml
+podman_use_quadlets: yes
+
+podman_containers:
+  - name: web
+    image: docker.io/traefik/whoami
+    tag: latest
+    hostname: "%H" # Inherits host's hostname
+
+  - name: app
+    image: myapp:latest
+    hostname: custom-name # Uses custom hostname
+```
+
+In both legacy and quadlet modes, systemd's `%H` specifier dynamically sets the hostname at container startup.
+
+### Migration from podman_pod_inherit_hostname
+
+**Removed:** `podman_pod_inherit_hostname` has been removed and no longer has any effect.
+
+**Before (removed):**
+
+```yaml
+podman_pod_inherit_hostname: yes # Applied to ALL pods
+
+podman_pods:
+  - name: webapp
+```
+
+**After (recommended):**
+
+```yaml
+podman_pods:
+  - name: webapp
+    hostname: "%H" # Explicit per-pod opt-in
+```
+
 ## Testing
 
 This role uses [Molecule](https://ansible.readthedocs.io/projects/molecule/) with the Podman driver for integration testing. Dependencies are managed with [uv](https://docs.astral.sh/uv/).
@@ -107,9 +150,11 @@ uv sync --python 3.13
 # Run all scenarios
 uv run molecule test -s build-image
 uv run molecule test -s legacy-pod
+uv run molecule test -s legacy-container-hostname
 uv run molecule test -s quadlet
 uv run molecule test -s quadlet-default-network
 uv run molecule test -s quadlet-pod
+uv run molecule test -s quadlet-container-hostname
 
 # Or run individual steps for a scenario
 uv run molecule create -s quadlet    # Create the test container
@@ -120,12 +165,14 @@ uv run molecule destroy -s quadlet   # Tear down
 
 ### Test Scenarios
 
-| Scenario                  | Mode    | What it tests                                                                       |
-| ------------------------- | ------- | ----------------------------------------------------------------------------------- |
-| `build-image`             | N/A     | Builds the systemd-enabled test container image                                     |
-| `legacy-pod`              | Legacy  | Pod with multiple containers, `podman generate systemd`                             |
-| `quadlet`                 | Quadlet | Standalone containers on a shared network, `.container`/`.network` files, env files |
-| `quadlet-default-network` | Quadlet | Pods and containers using `podman_default_network` with `.network` suffix           |
-| `quadlet-pod`             | Quadlet | Pod + standalone containers coexisting, `.pod`/`.container`/`.network` files        |
+| Scenario                     | Mode    | What it tests                                                                       |
+| ---------------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `build-image`                | N/A     | Builds the systemd-enabled test container image                                     |
+| `legacy-pod`                 | Legacy  | Pod with multiple containers, `podman generate systemd`                             |
+| `legacy-container-hostname`  | Legacy  | Standalone containers with host hostname inheritance                                |
+| `quadlet`                    | Quadlet | Standalone containers on a shared network, `.container`/`.network` files, env files |
+| `quadlet-default-network`    | Quadlet | Pods and containers using `podman_default_network` with `.network` suffix           |
+| `quadlet-pod`                | Quadlet | Pod + standalone containers coexisting, `.pod`/`.container`/`.network` files        |
+| `quadlet-container-hostname` | Quadlet | Standalone containers with host hostname inheritance using quadlets                 |
 
 All scenarios use a custom `molecule/Dockerfile.j2` that builds a systemd-enabled Ubuntu 25.10 image with podman 5.4 (required for `.pod` quadlet support).
