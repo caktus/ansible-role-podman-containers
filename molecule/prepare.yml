@@ -47,3 +47,7 @@
       ansible.builtin.systemd:
         name: user@0.service
         state: started
+      retries: 5
+      delay: 2
+      register: user_systemd
+      until: user_systemd is success
