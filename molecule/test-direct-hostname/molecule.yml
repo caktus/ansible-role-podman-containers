@@ -1,6 +1,5 @@
 ---
-# Scenario: Legacy mode with standalone containers that inherit the host's hostname.
-# Tests hostname inheritance behavior for containers not in a pod using direct hostname: "%H"
+# Test: Users can directly pass hostname: "%H" to inherit host hostname
 driver:
   name: podman
 
@@ -23,7 +22,7 @@ provisioner:
       instance:
         podman_user: root
         podman_user_home: /root
-        podman_use_quadlets: false
+        podman_use_quadlets: true
         podman_use_env_files: true
         podman_build_repos: []
         podman_networks: []

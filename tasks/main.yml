@@ -15,6 +15,16 @@
       See the README for migration examples.
   when: podman_pod_name is defined and not podman_use_quadlets
 
+- name: Warn about deprecated hostname inheritance variables
+  ansible.builtin.debug:
+    msg: |
+      *** WARNING: podman_pod_inherit_hostname and podman_container_inherit_hostname are DEPRECATED ***
+      These global flags have been deprecated in favor of per-container/pod hostname configuration.
+      To inherit the host's hostname, set hostname: "%H" directly on containers or pods.
+      See the README for examples and migration guide.
+  when: (podman_pod_inherit_hostname is defined and podman_pod_inherit_hostname) or 
+        (podman_container_inherit_hostname is defined and podman_container_inherit_hostname)
+
 - name: Create directories
   ansible.builtin.file:
     path: "{{ item }}"
@@ -203,16 +213,7 @@
         {{ omit }}
       {%- endif -%}
     userns: "{{ item.userns | default(omit) }}"
-    hostname: >-
-      {{ item.hostname
-         | default(
-             (podman_use_quadlets | bool)
-               | ternary(
-                   omit,
-                   podman_pod_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)
-               )
-           )
-      }}
+    hostname: "{{ item.hostname | default(omit) }}"
     cpus: "{{ item.cpus | default(omit) }}"
     memory: "{{ item.memory | default(omit) }}"
     dns: "{{ item.dns | default(omit) }}"
@@ -269,16 +270,7 @@
     log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"
     user: "{{ item.user | default(omit) }}"
     userns: "{{ item.userns | default(omit) }}"
-    hostname: >-
-      {{ item.hostname
-         | default(
-             (podman_use_quadlets | bool)
-               | ternary(
-                   podman_container_inherit_hostname | ternary('%H', omit),
-                   podman_container_inherit_hostname | ternary('PLACEHOLDER_HOSTNAME', omit)
-               )
-           )
-      }}
+    hostname: "{{ item.hostname | default(omit) }}"
     # Use container's network if defined, otherwise fall back to podman_default_network.
     # Network should not be set for containers in a pod.
     # In quadlet mode, the default network gets a .network suffix so the quadlet
@@ -352,23 +344,25 @@
         label: "{{ item.name }}"
       when: not item.pod | default(false) and container.changed
 
-    - name: Replace placeholder hostname in pod units
+    - name: Replace %H with quoted "%H" in pod units (legacy mode)
       ansible.builtin.replace:
-        path: "{{ podman_user_home }}/.config/systemd/user/pod-{{ item }}.service"
-        regexp: "PLACEHOLDER_HOSTNAME"
+        path: "{{ podman_user_home }}/.config/systemd/user/pod-{{ item.name }}.service"
+        regexp: '(?<!")[%]H(?!")'
         replace: '"%H"'
-      loop: "{{ podman_pods | map(attribute='name') }}"
-      when: podman_pod_inherit_hostname
+      loop: "{{ podman_pods }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: item.hostname is defined and '%H' in item.hostname
 
-    - name: Replace placeholder hostname in container units
+    - name: Replace %H with quoted "%H" in container units (legacy mode)
       ansible.builtin.replace:
         path: "{{ podman_user_home }}/.config/systemd/user/container-{{ item.name }}.service"
-        regexp: "PLACEHOLDER_HOSTNAME"
+        regexp: '(?<!")[%]H(?!")'
         replace: '"%H"'
       loop: "{{ podman_containers }}"
       loop_control:
         label: "{{ item.name }}"
-      when: podman_container_inherit_hostname and not item.pod | default(false)
+      when: not item.pod | default(false) and item.hostname is defined and '%H' in item.hostname
 
 ### Enable and start services ###
 - name: Reload systemd daemon

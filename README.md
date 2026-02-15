@@ -90,28 +90,48 @@ podman_containers:
 
 ## Hostname Inheritance
 
-By default, pods and containers use their own hostnames. You can configure them
-to inherit the host's hostname using:
-
-- `podman_pod_inherit_hostname: yes` - Pods without an explicit `hostname` will inherit the host's hostname
-- `podman_container_inherit_hostname: yes` - Standalone containers (not in a pod) without an explicit `hostname` will inherit the host's hostname
+By default, pods and containers use their own hostnames. To inherit the host's hostname, set `hostname: "%H"` directly on the container or pod:
 
 **Example:**
 
 ```yaml
 podman_use_quadlets: yes
-podman_container_inherit_hostname: yes
 
 podman_containers:
   - name: web
     image: docker.io/traefik/whoami
     tag: latest
-    # Container will inherit the host's hostname
+    hostname: "%H"  # Inherits host's hostname
+  
+  - name: app
+    image: myapp:latest
+    hostname: custom-name  # Uses custom hostname
 ```
 
-In both legacy and quadlet modes, this uses systemd's `%H` specifier to
-dynamically set the hostname at container startup. Individual containers/pods can
-override this by setting their own `hostname` parameter.
+In both legacy and quadlet modes, systemd's `%H` specifier dynamically sets the hostname at container startup.
+
+### Migration from Global Flags
+
+**Deprecated:** `podman_pod_inherit_hostname` and `podman_container_inherit_hostname` are deprecated and will be removed in a future version.
+
+**Before (deprecated):**
+
+```yaml
+podman_container_inherit_hostname: yes  # Applied to ALL containers
+
+podman_containers:
+  - name: web
+    image: myapp:latest
+```
+
+**After (recommended):**
+
+```yaml
+podman_containers:
+  - name: web
+    image: myapp:latest
+    hostname: "%H"  # Explicit per-container opt-in
+```
 
 ## Testing
 

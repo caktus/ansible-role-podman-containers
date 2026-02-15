@@ -1,6 +1,6 @@
 ---
 # Scenario: Quadlet mode with standalone containers that inherit the host's hostname.
-# Tests hostname inheritance behavior for containers not in a pod using quadlets.
+# Tests hostname inheritance using direct hostname: "%H" in quadlet mode.
 driver:
   name: podman
 
@@ -25,7 +25,6 @@ provisioner:
         podman_user_home: /root
         podman_use_quadlets: true
         podman_use_env_files: true
-        podman_container_inherit_hostname: true
         podman_build_repos: []
         podman_networks: []
         podman_pods: []
@@ -33,9 +32,11 @@ provisioner:
           - name: web
             image: docker.io/traefik/whoami
             tag: latest
+            hostname: "%H"
           - name: redis
             image: docker.io/redis
             tag: "7-alpine"
+            hostname: "%H"
 
 scenario:
   test_sequence:
