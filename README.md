@@ -43,7 +43,7 @@ This section covers migrating from older versions of the role.
 
 The `podman_pod_name` variable has been removed and no longer has any effect.
 
-**If you were using podman_pod_name** to automatically assign containers to pods:
+**If you were using `podman_pod_name`** to automatically assign containers to pods:
 
 **Old approach (removed):**
 
@@ -98,7 +98,7 @@ podman_containers:
 
 `podman_pod_inherit_hostname` has been removed and no longer has any effect.
 
-**If you were using podman_pod_inherit_hostname** to make all pods inherit the host's hostname:
+**If you were using `podman_pod_inherit_hostname`** to make all pods inherit the host's hostname:
 
 **Old approach (removed):**
 
