@@ -35,7 +35,7 @@
         enabled: true
 
     - name: Trigger dbus-broker activation
-      ansible.builtin.command: busctl --system status
+      ansible.builtin.command: busctl --system list --no-pager
       changed_when: false
       failed_when: false
       register: dbus_trigger
