@@ -23,6 +23,22 @@ See `defaults/main.yml` for all supported variables, defaults, and examples.
 
 ## Quick Start
 
+**Sample playbook:**
+
+```yaml
+---
+- hosts: app_servers
+  tags: podman
+  gather_facts: no
+  become: no
+  vars:
+    ansible_user: "{{ podman_user }}"
+  roles:
+    - role: caktus.podman-containers
+```
+
+**Role variables:**
+
 ```yaml
 podman_user: mydeployuser
 podman_user_home: /home/mydeployuser
