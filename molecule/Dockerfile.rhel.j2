@@ -32,9 +32,27 @@ RUN ln -sf /dev/null /etc/systemd/system/systemd-networkd-wait-online.service &&
 # 10.88.0.0/16 subnet, so reconfigure the inner podman to use 10.89.0.0/16.
 RUN printf '[network]\ndefault_subnet = "10.89.0.0/16"\n' > /etc/containers/containers.conf
 
+# Use fuse-overlayfs for inner podman storage. Native overlay-on-overlay fails
+# in nested containers when metacopy=on (RHEL default), causing pod infra
+# container starts to error with "rootfs-overlay: creating overlay failed".
+RUN sed -i \
+    -e 's|^#mount_program.*|mount_program = "/usr/bin/fuse-overlayfs"|' \
+    -e 's|^mountopt = .*|mountopt = "nodev"|' \
+    /etc/containers/storage.conf
+
 # Set up rootless podman / user systemd prerequisites
 RUN mkdir -p /run/user/0 && chmod 700 /run/user/0 && \
     mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/root
+
+# Override PAM config for systemd-user to bypass pam_unix.so authentication.
+# On Podman 4.x (GHA runners), unix_chkpwd cannot run inside containers even
+# with --privileged, causing "could not obtain user info" PAM errors when
+# starting user@0.service. This is safe for CI/testing containers only.
+RUN printf '%s\n' \
+    'account  sufficient pam_permit.so' \
+    'session  required   pam_loginuid.so' \
+    'session  optional   pam_systemd.so' \
+    > /etc/pam.d/systemd-user
 
 ENV XDG_RUNTIME_DIR=/run/user/0
 
