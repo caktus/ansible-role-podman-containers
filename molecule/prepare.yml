@@ -28,46 +28,18 @@
         name: network-online.target
         state: started
 
-    - name: Start dbus socket (socket-activated on RHEL/CentOS via dbus-broker)
+    - name: Start dbus service (RHEL/CentOS uses dbus-broker)
       ansible.builtin.systemd:
-        name: dbus.socket
+        name: dbus-broker.service
         state: started
-        enabled: true
-
-    - name: Trigger dbus-broker activation
-      ansible.builtin.command: busctl --system list --no-pager
-      changed_when: false
-      failed_when: false
-      register: dbus_trigger
-
-    - name: Wait for dbus-broker to be active
-      ansible.builtin.command: systemctl is-active dbus-broker.service
-      changed_when: false
-      register: dbus_broker_active
-      retries: 10
-      delay: 1
-      until: dbus_broker_active.rc == 0
+      register: dbus_broker
       failed_when: false
 
-    - name: Debug - Check dbus socket status
-      ansible.builtin.command: systemctl status dbus.socket
-      changed_when: false
-      failed_when: false
-      register: dbus_socket_status
-
-    - name: Debug - Show dbus socket status
-      ansible.builtin.debug:
-        var: dbus_socket_status.stdout_lines
-
-    - name: Debug - Check dbus-broker service status
-      ansible.builtin.command: systemctl status dbus-broker.service
-      changed_when: false
-      failed_when: false
-      register: dbus_broker_status
-
-    - name: Debug - Show dbus-broker status
-      ansible.builtin.debug:
-        var: dbus_broker_status.stdout_lines
+    - name: Start dbus service (Ubuntu/Debian uses dbus.service)
+      ansible.builtin.systemd:
+        name: dbus.service
+        state: started
+      when: dbus_broker is failed
 
     - name: Start user systemd instance for root (user@0)
       ansible.builtin.systemd:
@@ -77,39 +49,3 @@
       delay: 2
       register: user_systemd
       until: user_systemd is success
-      # Ignore errors to collect debug info before failing
-      ignore_errors: true
-
-    - name: Debug - Check user@0 service status on failure
-      ansible.builtin.command: systemctl status user@0.service
-      changed_when: false
-      failed_when: false
-      register: user_systemd_status
-      when: user_systemd is failed
-
-    - name: Debug - Show user@0 status on failure
-      ansible.builtin.debug:
-        var: user_systemd_status.stdout_lines
-      when: user_systemd is failed
-
-    - name: Debug - Get journalctl logs for user@0 on failure
-      ansible.builtin.command: journalctl -xeu user@0.service --no-pager
-      changed_when: false
-      failed_when: false
-      register: user_systemd_journal
-      when: user_systemd is failed
-
-    - name: Debug - Show journalctl logs for user@0 on failure
-      ansible.builtin.debug:
-        var: user_systemd_journal.stdout_lines
-      when: user_systemd is failed
-
-    - name: Fail if user@0 service did not start
-      ansible.builtin.fail:
-        msg: |
-          user@0.service failed to start. This is typically caused by:
-          - dbus not being properly initialized (check dbus.socket and dbus-broker.service status in logs above)
-          - XDG_RUNTIME_DIR not being set correctly
-          - systemd user mode prerequisites not being met
-          Review the systemctl status and journalctl logs above for detailed error information.
-      when: user_systemd is failed
