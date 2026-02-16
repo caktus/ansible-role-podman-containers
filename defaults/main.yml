@@ -37,6 +37,7 @@ podman_build_repos: []
 
 # Podman pods to create. Containers in a pod share a network namespace
 # and are started/stopped together.
+# Requires: Podman 3.0+ (legacy mode), Podman 5.0+ (quadlet .pod files)
 # See: https://docs.ansible.com/ansible/latest/collections/containers/podman/podman_pod_module.html
 podman_pods: []
 
@@ -79,8 +80,9 @@ podman_recreate: no
 # See: https://docs.ansible.com/ansible/latest/collections/containers/podman/podman_network_module.html
 podman_networks: []
 
-# Use Quadlets (Podman 4.4+) instead of `podman generate systemd`.
+# Use Quadlets instead of `podman generate systemd`.
 # Recommended for new deployments. May become the default in a future version.
+# Requires: Podman 4.4+ for .container/.network files, Podman 5.0+ for .pod files
 # See: https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html
 podman_use_quadlets: no
 

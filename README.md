@@ -6,6 +6,14 @@ An Ansible role to run Podman containers on Ubuntu or RHEL-compatible servers.
 
 See `defaults/main.yml` for all supported variables, defaults, and examples.
 
+## Version Requirements
+
+| Feature                         | Minimum Podman Version |
+| ------------------------------- | ---------------------- |
+| Basic containers/pods (legacy)  | 3.0                    |
+| Quadlets (.container, .network) | 4.4                    |
+| Quadlet pods (.pod files)       | 5.0                    |
+
 ## Key Features
 
 - **Networks or Pods**: Use networks for independent container management, or pods for tightly coupled containers
