@@ -96,6 +96,54 @@ podman_containers:
       - /home/deploy/env/extra.env # additional file
 ```
 
+### Container Logging
+
+Use `log_driver` and `log_opt` to write container logs to files. Set them per-container or globally via `podman_log_driver` and `podman_log_opt`:
+
+```yaml
+# Global defaults (apply to all containers)
+podman_log_driver: k8s-file
+podman_log_opt:
+  path: "{{ podman_user_home }}/log/{{ item.name }}.log"
+
+podman_containers:
+  - name: web
+    image: myapp
+    tag: latest
+  - name: worker
+    image: myapp
+    tag: latest
+```
+
+Or per-container:
+
+```yaml
+podman_containers:
+  - name: web
+    image: myapp
+    tag: latest
+    log_driver: k8s-file
+    log_opt:
+      path: /home/deploy/log/web.log
+```
+
+**Podman version compatibility:**
+
+- **Legacy mode**: `log_driver` and `log_opt` work on all Podman versions (3.0+)
+
+- **Quadlet mode on Podman 5.0+**: `log_driver` and `log_opt` generate `LogDriver=` and `LogOpt=` directives in `.container` files (works automatically)
+
+- **Quadlet mode on Podman < 5.0** (e.g., Ubuntu 24.04 with Podman 4.9): `LogDriver=` and `LogOpt=` directives are **not supported** and will cause systemd to reject the unit file. Use `PodmanArgs=` instead via `quadlet_options` (per-container or global `podman_quadlet_options`):
+
+  ```yaml
+  podman_containers:
+    - name: web
+      image: myapp
+      tag: latest
+      quadlet_options:
+        - "PodmanArgs=--log-driver=k8s-file --log-opt path=/var/log/web.log"
+  ```
+
 ## Upgrade Guide
 
 This section covers migrating from older versions of the role.
@@ -225,6 +273,7 @@ uv run molecule test -s quadlet-default-network
 uv run molecule test -s quadlet-pod
 uv run molecule test -s quadlet-container-hostname
 uv run molecule test -s quadlet-restart
+uv run molecule test -s podman49-logging
 
 # Or run all scenarios
 uv run molecule test --all
@@ -239,21 +288,23 @@ uv run molecule destroy -s $SCENARIO   # Tear down
 
 ### Test Scenarios
 
-| Scenario                     | Mode    | What it tests                                                                |
-| ---------------------------- | ------- | ---------------------------------------------------------------------------- |
-| `default`                    | Quadlet | README quickstart example (single container, shared network, HTTP endpoint)  |
-| `build-image`                | N/A     | Builds the systemd-enabled test container image                              |
-| `legacy-pod`                 | Legacy  | Pod with multiple containers, `podman generate systemd`                      |
-| `legacy-container-hostname`  | Legacy  | Standalone containers with host hostname inheritance                         |
-| `quadlet`                    | Quadlet | Standalone containers on a shared network with `.container`/`.network` files |
-| `quadlet-default-network`    | Quadlet | Demonstrates `podman_default_network` with shared `.network` quadlet         |
-| `quadlet-pod`                | Quadlet | Pod + standalone containers coexisting with mixed `.pod`/`.container` files  |
-| `quadlet-container-hostname` | Quadlet | Standalone containers with host hostname inheritance using quadlets          |
-| `quadlet-restart`            | Quadlet | Container/pod restart behavior when environment variables change             |
+| Scenario                     | Mode    | What it tests                                                                  |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `default`                    | Quadlet | README quickstart example (single container, shared network, HTTP endpoint)    |
+| `build-image`                | N/A     | Builds the systemd-enabled test container image                                |
+| `legacy-pod`                 | Legacy  | Pod with multiple containers, `podman generate systemd`                        |
+| `legacy-container-hostname`  | Legacy  | Standalone containers with host hostname inheritance                           |
+| `quadlet`                    | Quadlet | Standalone containers on a shared network with `.container`/`.network` files   |
+| `quadlet-default-network`    | Quadlet | Demonstrates `podman_default_network` with shared `.network` quadlet           |
+| `quadlet-pod`                | Quadlet | Pod + standalone containers coexisting with mixed `.pod`/`.container` files    |
+| `quadlet-container-hostname` | Quadlet | Standalone containers with host hostname inheritance using quadlets            |
+| `quadlet-restart`            | Quadlet | Container/pod restart behavior when environment variables change               |
+| `podman49-logging`           | Quadlet | Container logging using `PodmanArgs=` workaround for Podman 4.9 (Ubuntu 24.04) |
 
 All scenarios use systemd-enabled test container images:
 
-- **Ubuntu:** Custom `molecule/Dockerfile.j2` builds Ubuntu 25.10 with Podman 5.4
+- **Ubuntu 25.10:** Custom `molecule/Dockerfile.j2` with Podman 5.4 (most scenarios)
+- **Ubuntu 24.04:** Used in `podman49-logging` scenario with Podman 4.9
 - **RHEL/CentOS:** Custom `molecule/Dockerfile.rhel.j2` builds CentOS Stream 9 with Podman 5.6
 
 Podman 5.0+ is required for `.pod` quadlet support tested in the `quadlet-pod` scenario.

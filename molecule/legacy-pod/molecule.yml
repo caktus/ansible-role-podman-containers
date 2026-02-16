@@ -53,7 +53,10 @@ provisioner:
             image: docker.io/alpine
             tag: latest
             pod: webapp
-            command: sleep infinity
+            command: sh -c 'echo worker started && sleep infinity'
+            log_driver: k8s-file
+            log_opt:
+              path: /root/log/worker.log
             env_as_file:
               ROLE: worker
               QUEUE: default

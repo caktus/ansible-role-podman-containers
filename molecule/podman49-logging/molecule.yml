@@ -1,22 +1,14 @@
 ---
-# Scenario: Quadlet mode with a network and standalone containers (no pod).
-# Tests the modern quadlet workflow where containers communicate via a shared network.
+# Scenario: Quadlet mode with PodmanArgs logging workaround for Podman < 5.0.
+# Tests container logging on Ubuntu 24.04 (Podman 4.9) using the PodmanArgs= directive
+# instead of the unsupported LogDriver=/LogOpt= directives.
 driver:
   name: podman
 
 platforms:
-  - name: ubuntu
-    image: docker.io/library/ubuntu:questing
+  - name: ubuntu2404
+    image: docker.io/library/ubuntu:noble
     dockerfile: ../Dockerfile.j2
-    command: ""
-    pre_build_image: false
-    privileged: true
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
-
-  - name: rhel
-    image: quay.io/centos/centos:stream9
-    dockerfile: ../Dockerfile.rhel.j2
     command: ""
     pre_build_image: false
     privileged: true
@@ -40,23 +32,21 @@ provisioner:
         podman_networks:
           - name: appnet
         podman_containers:
-          - name: frontend
+          - name: web
             image: docker.io/traefik/whoami
             tag: latest
             publish:
               - "8080:80"
-          - name: backend
-            image: docker.io/traefik/whoami
+            # Use PodmanArgs workaround for Podman 4.9 (no LogDriver/LogOpt support)
+            quadlet_options:
+              - "PodmanArgs=--log-driver=k8s-file --log-opt path=/root/log/web.log"
+          - name: worker
+            image: docker.io/alpine
             tag: latest
-            log_driver: k8s-file
-            log_opt:
-              path: /root/log/backend.log
-            env_as_file:
-              APP_NAME: backend
-              DATABASE_URL: "postgres://db:5432/app"
-          - name: cache
-            image: docker.io/redis
-            tag: "7-alpine"
+            command: sh -c 'echo worker started && sleep infinity'
+            # Another container using the PodmanArgs workaround
+            quadlet_options:
+              - "PodmanArgs=--log-driver=k8s-file --log-opt path=/root/log/worker.log --log-opt max-size=10mb"
 
 scenario:
   test_sequence:

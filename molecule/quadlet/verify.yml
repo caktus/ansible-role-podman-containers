@@ -57,6 +57,8 @@
           - "'Image=docker.io/traefik/whoami:latest' in backend_quadlet.content | b64decode"
           - "'Network=appnet.network' in backend_quadlet.content | b64decode"
           - "'EnvironmentFile=' in backend_quadlet.content | b64decode"
+          - "'LogDriver=' in backend_quadlet.content | b64decode"
+          - "'LogOpt=' in backend_quadlet.content | b64decode"
         fail_msg: "backend.container quadlet content is incorrect."
 
     - name: Read cache.container quadlet file
@@ -123,3 +125,17 @@
           - "'backend' in containers.stdout"
           - "'cache' in containers.stdout"
         fail_msg: "Missing containers. Running: {{ containers.stdout }}"
+
+    # ------------------------------------------------------------------
+    # Verify container logging to file works in quadlet mode
+    # ------------------------------------------------------------------
+
+    - name: Check backend log file exists
+      ansible.builtin.stat:
+        path: /root/log/backend.log
+      register: log_file
+
+    - name: Assert log file was created
+      ansible.builtin.assert:
+        that: log_file.stat.exists
+        fail_msg: "Backend log file /root/log/backend.log not found. log_opt is not working in quadlet mode."

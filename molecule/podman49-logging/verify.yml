@@ -1,0 +1,136 @@
+---
+- name: Verify PodmanArgs logging workaround for Podman 4.9
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Check quadlet directory exists
+      ansible.builtin.stat:
+        path: /root/.config/containers/systemd
+      register: quadlet_dir
+
+    - name: Assert quadlet directory was created
+      ansible.builtin.assert:
+        that: quadlet_dir.stat.isdir
+        fail_msg: "Quadlet directory not found."
+
+    - name: Find quadlet files
+      ansible.builtin.find:
+        paths: /root/.config/containers/systemd
+        patterns:
+          - "*.container"
+          - "*.network"
+      register: quadlet_files
+
+    - name: Assert expected quadlet files exist
+      ansible.builtin.assert:
+        that:
+          - quadlet_files.files | map(attribute='path') | map('basename') | sort
+            == ['appnet.network', 'web.container', 'worker.container']
+        fail_msg: >-
+          Expected 3 quadlet files (2 containers + 1 network).
+          Found: {{ quadlet_files.files | map(attribute='path') | map('basename') | list }}
+
+    # ------------------------------------------------------------------
+    # Verify web.container uses PodmanArgs (not LogDriver/LogOpt)
+    # ------------------------------------------------------------------
+
+    - name: Read web.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/web.container
+      register: web_quadlet
+
+    - name: Assert web.container uses PodmanArgs workaround
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=web' in web_quadlet.content | b64decode"
+          - "'Image=docker.io/traefik/whoami:latest' in web_quadlet.content | b64decode"
+          - "'Network=appnet.network' in web_quadlet.content | b64decode"
+          - "'PublishPort=8080:80' in web_quadlet.content | b64decode"
+          # Verify PodmanArgs contains logging configuration
+          - "'PodmanArgs=--log-driver=k8s-file --log-opt path=/root/log/web.log' in web_quadlet.content | b64decode"
+          # Verify unsupported LogDriver/LogOpt directives are NOT present
+          - "'LogDriver=' not in web_quadlet.content | b64decode"
+          - "'LogOpt=' not in web_quadlet.content | b64decode"
+        fail_msg: "web.container quadlet does not use PodmanArgs workaround correctly."
+
+    # ------------------------------------------------------------------
+    # Verify worker.container uses PodmanArgs with multiple log-opt
+    # ------------------------------------------------------------------
+
+    - name: Read worker.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/worker.container
+      register: worker_quadlet
+
+    - name: Assert worker.container uses PodmanArgs with multiple options
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=worker' in worker_quadlet.content | b64decode"
+          - "'Image=docker.io/alpine:latest' in worker_quadlet.content | b64decode"
+          - "'Network=appnet.network' in worker_quadlet.content | b64decode"
+          # Verify PodmanArgs contains logging with multiple log-opt
+          - "'PodmanArgs=--log-driver=k8s-file --log-opt path=/root/log/worker.log --log-opt max-size=10mb' in worker_quadlet.content | b64decode"
+          # Verify unsupported LogDriver/LogOpt directives are NOT present
+          - "'LogDriver=' not in worker_quadlet.content | b64decode"
+          - "'LogOpt=' not in worker_quadlet.content | b64decode"
+        fail_msg: "worker.container quadlet does not use PodmanArgs workaround correctly."
+
+    # ------------------------------------------------------------------
+    # Verify containers are actually running
+    # ------------------------------------------------------------------
+
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert all containers are running
+      ansible.builtin.assert:
+        that:
+          - "'web' in containers.stdout"
+          - "'worker' in containers.stdout"
+        fail_msg: "Missing containers. Running: {{ containers.stdout }}"
+
+    # ------------------------------------------------------------------
+    # Verify container logging to file works via PodmanArgs
+    # ------------------------------------------------------------------
+
+    - name: Check web log file exists
+      ansible.builtin.stat:
+        path: /root/log/web.log
+      register: web_log_file
+
+    - name: Assert web log file was created
+      ansible.builtin.assert:
+        that: web_log_file.stat.exists
+        fail_msg: "Web log file /root/log/web.log not found. PodmanArgs logging is not working."
+
+    - name: Check worker log file exists
+      ansible.builtin.stat:
+        path: /root/log/worker.log
+      register: worker_log_file
+
+    - name: Assert worker log file was created
+      ansible.builtin.assert:
+        that: worker_log_file.stat.exists
+        fail_msg: "Worker log file /root/log/worker.log not found. PodmanArgs logging is not working."
+
+    # ------------------------------------------------------------------
+    # Verify Podman version (should be 4.x on Ubuntu 24.04)
+    # ------------------------------------------------------------------
+
+    - name: Get Podman version
+      ansible.builtin.command: podman --version
+      register: podman_version
+      changed_when: false
+
+    - name: Display Podman version
+      ansible.builtin.debug:
+        msg: "{{ podman_version.stdout }}"
+
+    - name: Assert Podman version is 4.x (Ubuntu 24.04)
+      ansible.builtin.assert:
+        that:
+          - "'podman version 4.' in podman_version.stdout"
+        fail_msg: "Expected Podman 4.x on Ubuntu 24.04, got: {{ podman_version.stdout }}"

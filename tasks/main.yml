@@ -265,7 +265,7 @@
         {{ omit }}
       {%- endif -%}
     log_driver: "{{ item.log_driver | default(podman_log_driver) | default(omit) }}"
-    log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"
+    log_opt: "{{ item.log_opt | default(podman_log_opt) | default(omit) }}"
     user: "{{ item.user | default(omit) }}"
     userns: "{{ item.userns | default(omit) }}"
     hostname: "{{ item.hostname | default(omit) }}"
@@ -321,7 +321,7 @@
     mount: "{{ item.mount | default(omit) }}"
     device: "{{ item.device | default(omit) }}"
     quadlet_dir: "{{ podman_use_quadlets | ternary(podman_quadlet_dir, omit) }}"
-    quadlet_options: "{{ item.quadlet_options | default(omit) }}"
+    quadlet_options: "{{ item.quadlet_options | default(podman_quadlet_options) | default(omit) }}"
   loop: "{{ podman_containers }}"
   loop_control:
     label: "{{ item.name }}"

@@ -38,3 +38,17 @@
           - env_file.stat.exists
           - env_file.stat.mode == '0600'
         fail_msg: "Env file missing or wrong permissions: {{ env_file.stat }}"
+
+    # ------------------------------------------------------------------
+    # Verify container logging to file works in legacy mode
+    # ------------------------------------------------------------------
+
+    - name: Check worker log file exists
+      ansible.builtin.stat:
+        path: /root/log/worker.log
+      register: log_file
+
+    - name: Assert log file was created
+      ansible.builtin.assert:
+        that: log_file.stat.exists
+        fail_msg: "Worker log file /root/log/worker.log not found. log_opt is not working in legacy mode."

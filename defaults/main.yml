@@ -69,10 +69,10 @@ podman_delete_before_create: no
 # Always recreate pods and containers on deploy
 podman_recreate: no
 
-# Default log driver for containers (legacy mode only)
+# Default log driver for containers
 # podman_log_driver: k8s-file
 
-# Default log options for containers (legacy mode only)
+# Default log options for containers
 # podman_log_opt:
 #   path: "{{ podman_user_home }}/log/{{ item.name }}.log"
 
