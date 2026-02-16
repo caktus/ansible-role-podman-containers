@@ -1,13 +1,28 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
 repos:
+  # General file quality hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
+    rev: v6.0.0
     hooks:
-      - id: check-yaml
-      - id: end-of-file-fixer
       - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
       - id: check-added-large-files
+      - id: check-json
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: detect-private-key
 
+  # YAML and code formatting with Prettier
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: "v2.6.0"
+    rev: "v3.1.0"
     hooks:
       - id: prettier
+        types_or: [yaml, markdown, json]
+
+  # YAML linting for Ansible files
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
