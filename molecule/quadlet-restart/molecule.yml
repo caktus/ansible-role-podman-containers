@@ -1,0 +1,51 @@
+---
+# Scenario: Quadlet restart behavior
+# Tests that containers and pods are restarted (or not) correctly
+# when environment variables change between deployments.
+# Verifies:
+#   1. All containers start on initial deploy
+#   2. No containers restart when nothing changes (idempotent)
+#   3. Standalone containers with changed env vars are restarted
+#   4. Standalone containers without changes are NOT restarted
+#   5. A pod is restarted when any of its containers' env vars change
+#   6. Pods with no changed containers are NOT restarted
+driver:
+  name: podman
+
+platforms:
+  - name: ubuntu
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+  - name: rhel
+    image: quay.io/centos/centos:stream9
+    dockerfile: ../Dockerfile.rhel.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: ../prepare.yml
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

@@ -1,0 +1,62 @@
+---
+- name: Verify final state after restart tests
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert all containers are still running
+      ansible.builtin.assert:
+        that:
+          - "'pod-web' in containers.stdout"
+          - "'pod-worker' in containers.stdout"
+          - "'solo-changed' in containers.stdout"
+          - "'solo-unchanged' in containers.stdout"
+        fail_msg: "Not all containers running after test. Found: {{ containers.stdout }}"
+
+    - name: Get pod status
+      ansible.builtin.command: podman pod ps --format "{{ '{{' }}.Name{{ '}}' }}"
+      register: pods
+      changed_when: false
+
+    - name: Assert pod exists
+      ansible.builtin.assert:
+        that: "'testpod' in pods.stdout"
+        fail_msg: "Pod 'testpod' not found. Pods: {{ pods.stdout }}"
+
+    - name: Verify pod-worker has final env vars
+      ansible.builtin.command: podman exec pod-worker env
+      register: worker_env
+      changed_when: false
+
+    - name: Assert pod-worker env is correct
+      ansible.builtin.assert:
+        that:
+          - "'WORKER_MODE=stream' in worker_env.stdout"
+        fail_msg: "pod-worker env incorrect: {{ worker_env.stdout }}"
+
+    - name: Verify solo-changed has final env vars
+      ansible.builtin.command: podman exec solo-changed env
+      register: solo_changed_env
+      changed_when: false
+
+    - name: Assert solo-changed env is correct
+      ansible.builtin.assert:
+        that:
+          - "'SOLO_VAR=gamma' in solo_changed_env.stdout"
+        fail_msg: "solo-changed env incorrect: {{ solo_changed_env.stdout }}"
+
+    - name: Verify solo-unchanged still has original env
+      ansible.builtin.command: podman exec solo-unchanged env
+      register: solo_unchanged_env
+      changed_when: false
+
+    - name: Assert solo-unchanged env is correct
+      ansible.builtin.assert:
+        that:
+          - "'SOLO_VAR=beta' in solo_unchanged_env.stdout"
+        fail_msg: "solo-unchanged env incorrect: {{ solo_unchanged_env.stdout }}"
