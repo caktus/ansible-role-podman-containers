@@ -149,8 +149,6 @@ This role uses [Molecule](https://ansible.readthedocs.io/projects/molecule/) wit
 uv sync --locked
 ```
 
-**Requirements:** Podman must be installed on the host machine.
-
 ### Code Quality
 
 ```bash
@@ -159,6 +157,8 @@ uv run pre-commit run --all-files
 ```
 
 ### Running Tests
+
+**Requirements:** Podman must be installed on the host machine.
 
 ```bash
 # Run the default scenario (recommended for quick testing)
