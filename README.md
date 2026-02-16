@@ -1,6 +1,12 @@
 # caktus.podman-containers
 
-An Ansible role to run Podman containers on Ubuntu or RHEL-compatible servers.
+🚀 **Production-ready Podman container orchestration with Ansible**--no Kubernetes required.
+
+- 📦 Declarative Ansible container deployment with systemd integration
+- ✨ Modern Quadlet support (.container, .network, .pod files)
+- 🔒 Security best practices built-in (restricted env files, rootless containers)
+- 🐧 Works seamlessly on Ubuntu and RHEL-based systems
+- ⚡ Get systemd's process management without k8s complexity
 
 ## Configuration
 
