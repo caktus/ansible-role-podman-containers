@@ -5,7 +5,7 @@
 - 📦 Declarative Ansible container deployment with systemd integration
 - ✨ Modern Quadlet support (.container, .network, .pod files)
 - 🔒 Security best practices built-in (restricted env files, rootless containers)
-- 🛠️ Git-based image builds (optionally clone repos and build with Podman)
+- 🛠️ Git-based image builds (optionally clone repos and build images with Podman)
 - 🐧 Works seamlessly on Ubuntu and RHEL-based systems
 - ⚡ Get systemd's process management without k8s complexity
 
