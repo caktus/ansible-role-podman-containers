@@ -21,31 +21,36 @@
         network:
           - testnet.network
 
+    # Use Amazon ECR Public Gallery to avoid Docker Hub rate limits.
+    # ECR Public has no rate limits and provides the same Alpine image.
+    _test_image: public.ecr.aws/docker/library/alpine
+    _test_tag: latest
+
     # Container definitions for initial deployment (runs 1 & 2)
     _initial_containers:
       - name: pod-web
-        image: docker.io/library/alpine
-        tag: latest
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
         pod: testpod
         command: sleep infinity
       - name: pod-worker
-        image: docker.io/library/alpine
-        tag: latest
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
         pod: testpod
         command: sleep infinity
         env:
           WORKER_MODE: batch
       - name: solo-changed
-        image: docker.io/library/alpine
-        tag: latest
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
         command: sleep infinity
         network:
           - testnet.network
         env:
           SOLO_VAR: alpha
       - name: solo-unchanged
-        image: docker.io/library/alpine
-        tag: latest
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
         command: sleep infinity
         network:
           - testnet.network
@@ -55,33 +60,33 @@
     # Container definitions with modified env vars (run 3)
     _modified_containers:
       - name: pod-web
-        image: docker.io/library/alpine
-        tag: latest
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
         pod: testpod
         command: sleep infinity
       - name: pod-worker
-        image: docker.io/library/alpine
-        tag: latest
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
         pod: testpod
         command: sleep infinity
         env:
-          WORKER_MODE: stream  # CHANGED from 'batch'
+          WORKER_MODE: stream # CHANGED from 'batch'
       - name: solo-changed
-        image: docker.io/library/alpine
-        tag: latest
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
         command: sleep infinity
         network:
           - testnet.network
         env:
-          SOLO_VAR: gamma  # CHANGED from 'alpha'
+          SOLO_VAR: gamma # CHANGED from 'alpha'
       - name: solo-unchanged
-        image: docker.io/library/alpine
-        tag: latest
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
         command: sleep infinity
         network:
           - testnet.network
         env:
-          SOLO_VAR: beta  # UNCHANGED
+          SOLO_VAR: beta # UNCHANGED
 
   tasks:
     ############################################################
