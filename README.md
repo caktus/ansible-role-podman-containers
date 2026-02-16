@@ -190,6 +190,7 @@ uv run molecule test -s quadlet
 uv run molecule test -s quadlet-default-network
 uv run molecule test -s quadlet-pod
 uv run molecule test -s quadlet-container-hostname
+uv run molecule test -s quadlet-restart
 
 # Or run all scenarios
 uv run molecule test --all
@@ -214,6 +215,7 @@ uv run molecule destroy -s $SCENARIO   # Tear down
 | `quadlet-default-network`    | Quadlet | Demonstrates `podman_default_network` with shared `.network` quadlet         |
 | `quadlet-pod`                | Quadlet | Pod + standalone containers coexisting with mixed `.pod`/`.container` files  |
 | `quadlet-container-hostname` | Quadlet | Standalone containers with host hostname inheritance using quadlets          |
+| `quadlet-restart`            | Quadlet | Container/pod restart behavior when environment variables change             |
 
 All scenarios use systemd-enabled test container images:
 

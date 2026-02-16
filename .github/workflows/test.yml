@@ -50,6 +50,7 @@ jobs:
           - quadlet-default-network
           - quadlet-pod
           - quadlet-container-hostname
+          - quadlet-restart
     steps:
       - name: Checkout
         uses: actions/checkout@v4

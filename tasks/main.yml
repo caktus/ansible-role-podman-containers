@@ -385,7 +385,7 @@
       {{
         container.results
         | selectattr('item.pod', 'defined')
-        | selectattr('item.pod', 'equalto', podman_use_quadlets | ternary(item.item.name ~ '.pod', item.item.name))
+        | selectattr('item.pod', 'equalto', item.item.name)
         | selectattr('changed', 'equalto', true)
         | list
         | length > 0
