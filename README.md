@@ -1,4 +1,4 @@
-# caktus.podman-containers
+# caktus.podman_containers
 
 🚀 **Production-ready Podman container orchestration with Ansible**--no Kubernetes required.
 
@@ -34,7 +34,7 @@ See `defaults/main.yml` for all supported variables, defaults, and examples.
   vars:
     ansible_user: "{{ podman_user }}"
   roles:
-    - role: caktus.podman-containers
+    - role: caktus.podman_containers
 ```
 
 **Role variables:**
