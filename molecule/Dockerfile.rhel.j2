@@ -32,6 +32,14 @@ RUN ln -sf /dev/null /etc/systemd/system/systemd-networkd-wait-online.service &&
 # 10.88.0.0/16 subnet, so reconfigure the inner podman to use 10.89.0.0/16.
 RUN printf '[network]\ndefault_subnet = "10.89.0.0/16"\n' > /etc/containers/containers.conf
 
+# Use fuse-overlayfs for inner podman storage. Native overlay-on-overlay fails
+# in nested containers when metacopy=on (RHEL default), causing pod infra
+# container starts to error with "rootfs-overlay: creating overlay failed".
+RUN sed -i \
+    -e 's|^#mount_program.*|mount_program = "/usr/bin/fuse-overlayfs"|' \
+    -e 's|^mountopt = .*|mountopt = "nodev"|' \
+    /etc/containers/storage.conf
+
 # Set up rootless podman / user systemd prerequisites
 RUN mkdir -p /run/user/0 && chmod 700 /run/user/0 && \
     mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/root
