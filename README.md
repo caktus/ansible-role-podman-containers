@@ -142,6 +142,8 @@ podman_containers:
 
 This role uses [Molecule](https://ansible.readthedocs.io/projects/molecule/) with the Podman driver for integration testing. Dependencies are managed with [uv](https://docs.astral.sh/uv/).
 
+All scenarios test both **Ubuntu 25.10** and **CentOS Stream 9** platforms to ensure compatibility across Debian and RHEL-based distributions.
+
 ### Setup
 
 ```bash
@@ -197,4 +199,9 @@ uv run molecule destroy -s $SCENARIO   # Tear down
 | `quadlet-pod`                | Quadlet | Pod + standalone containers coexisting, `.pod`/`.container`/`.network` files        |
 | `quadlet-container-hostname` | Quadlet | Standalone containers with host hostname inheritance using quadlets                 |
 
-All scenarios use a custom `molecule/Dockerfile.j2` that builds a systemd-enabled Ubuntu 25.10 image with podman 5.4 (required for `.pod` quadlet support).
+All scenarios use systemd-enabled test container images:
+
+- **Ubuntu:** Custom `molecule/Dockerfile.j2` builds Ubuntu 25.10 with Podman 5.4
+- **RHEL/CentOS:** Custom `molecule/Dockerfile.rhel.j2` builds CentOS Stream 9 with Podman 5.6
+
+Podman 5.0+ is required for `.pod` quadlet support tested in the `quadlet-pod` scenario.
