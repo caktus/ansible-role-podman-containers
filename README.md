@@ -3,7 +3,7 @@
 🚀 **Production-ready Podman container orchestration with Ansible**--no Kubernetes required.
 
 - 📦 Declarative Ansible container deployment with systemd integration
-- ✨ Modern Quadlet support (.container, .network, .pod files)
+- ✨ Modern Quadlet support (`.container`, `.network`, `.pod` files)
 - 🔒 Security best practices built-in (restricted env files, rootless containers)
 - 🛠️ Git-based image builds (optionally clone repos and build images with Podman)
 - 🐧 Works seamlessly on Ubuntu and RHEL-based systems
@@ -15,11 +15,11 @@ See `defaults/main.yml` for all supported variables, defaults, and examples.
 
 ## Version Requirements
 
-| Feature                         | Minimum Podman Version |
-| ------------------------------- | ---------------------- |
-| Basic containers/pods (legacy)  | 3.0                    |
-| Quadlets (.container, .network) | 4.4                    |
-| Quadlet pods (.pod files)       | 5.0                    |
+| Feature                             | Minimum Podman Version |
+| ----------------------------------- | ---------------------- |
+| Basic containers/pods (legacy)      | 3.0                    |
+| Quadlets (`.container`, `.network`) | 4.4                    |
+| Quadlet pods (`.pod` files)         | 5.0                    |
 
 ## Quick Start
 
@@ -204,16 +204,16 @@ uv run molecule destroy -s $SCENARIO   # Tear down
 
 ### Test Scenarios
 
-| Scenario                     | Mode    | What it tests                                                                       |
-| ---------------------------- | ------- | ----------------------------------------------------------------------------------- |
-| `default`                    | Quadlet | README quickstart example (single container, shared network, HTTP endpoint)         |
-| `build-image`                | N/A     | Builds the systemd-enabled test container image                                     |
-| `legacy-pod`                 | Legacy  | Pod with multiple containers, `podman generate systemd`                             |
-| `legacy-container-hostname`  | Legacy  | Standalone containers with host hostname inheritance                                |
-| `quadlet`                    | Quadlet | Standalone containers on a shared network, `.container`/`.network` files, env files |
-| `quadlet-default-network`    | Quadlet | Pods and containers using `podman_default_network` with `.network` suffix           |
-| `quadlet-pod`                | Quadlet | Pod + standalone containers coexisting, `.pod`/`.container`/`.network` files        |
-| `quadlet-container-hostname` | Quadlet | Standalone containers with host hostname inheritance using quadlets                 |
+| Scenario                     | Mode    | What it tests                                                                |
+| ---------------------------- | ------- | ---------------------------------------------------------------------------- |
+| `default`                    | Quadlet | README quickstart example (single container, shared network, HTTP endpoint)  |
+| `build-image`                | N/A     | Builds the systemd-enabled test container image                              |
+| `legacy-pod`                 | Legacy  | Pod with multiple containers, `podman generate systemd`                      |
+| `legacy-container-hostname`  | Legacy  | Standalone containers with host hostname inheritance                         |
+| `quadlet`                    | Quadlet | Standalone containers on a shared network with `.container`/`.network` files |
+| `quadlet-default-network`    | Quadlet | Demonstrates `podman_default_network` with shared `.network` quadlet         |
+| `quadlet-pod`                | Quadlet | Pod + standalone containers coexisting with mixed `.pod`/`.container` files  |
+| `quadlet-container-hostname` | Quadlet | Standalone containers with host hostname inheritance using quadlets          |
 
 All scenarios use systemd-enabled test container images:
 
