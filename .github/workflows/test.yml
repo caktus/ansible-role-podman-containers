@@ -51,6 +51,7 @@ jobs:
           - quadlet-pod
           - quadlet-container-hostname
           - quadlet-restart
+          - podman49-logging
     steps:
       - name: Checkout
         uses: actions/checkout@v4
