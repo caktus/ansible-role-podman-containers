@@ -5,6 +5,7 @@
 - 📦 Declarative Ansible container deployment with systemd integration
 - ✨ Modern Quadlet support (.container, .network, .pod files)
 - 🔒 Security best practices built-in (restricted env files, rootless containers)
+- 🛠️ Git-based image builds (clone repos and build with Podman)
 - 🐧 Works seamlessly on Ubuntu and RHEL-based systems
 - ⚡ Get systemd's process management without k8s complexity
 
@@ -19,13 +20,6 @@ See `defaults/main.yml` for all supported variables, defaults, and examples.
 | Basic containers/pods (legacy)  | 3.0                    |
 | Quadlets (.container, .network) | 4.4                    |
 | Quadlet pods (.pod files)       | 5.0                    |
-
-## Key Features
-
-- **Networks or Pods**: Use networks for independent container management, or pods for tightly coupled containers
-- **Quadlets** (Podman 4.4+): Declarative `.container`/`.network`/`.pod` files for systemd integration
-- **Environment Files**: Write secrets to files with restricted permissions
-- **Git Builds**: Clone repos and build images with Podman
 
 ## Quick Start
 
