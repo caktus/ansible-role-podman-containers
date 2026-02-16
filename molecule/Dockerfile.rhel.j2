@@ -1,0 +1,61 @@
+FROM {{ item.image }}
+
+ENV container=podman
+
+# Install packages needed by the role and molecule
+RUN dnf install -y \
+        systemd \
+        python3 sudo bash git openssh-clients hostname \
+        podman dbus fuse-overlayfs ca-certificates nftables && \
+    dnf clean all && \
+    # Remove unnecessary systemd services that may interfere in containers
+    rm -f /usr/lib/systemd/system/multi-user.target.wants/* && \
+    rm -f /etc/systemd/system/*.wants/* && \
+    rm -f /usr/lib/systemd/system/local-fs.target.wants/* && \
+    rm -f /usr/lib/systemd/system/sockets.target.wants/*udev* && \
+    rm -f /usr/lib/systemd/system/sockets.target.wants/*initctl* && \
+    rm -f /usr/lib/systemd/system/basic.target.wants/* && \
+    rm -f /usr/lib/systemd/system/anaconda.target.wants/* && \
+    # Re-enable dbus socket (cleared by basic.target cleanup above).
+    # dbus-broker is socket-activated on RHEL/CentOS; without this the system
+    # bus is unavailable and user@0.service cannot start.
+    systemctl enable dbus.socket
+
+# Make network-online.target reachable on boot so quadlet pod services don't
+# hang polling for it. Mask the wait-online service (no real network stack in a
+# container) and want the target from multi-user.target so it activates at boot.
+RUN ln -sf /dev/null /etc/systemd/system/systemd-networkd-wait-online.service && \
+    mkdir -p /etc/systemd/system/multi-user.target.wants && \
+    ln -sf /usr/lib/systemd/system/network-online.target /etc/systemd/system/multi-user.target.wants/network-online.target
+
+# Avoid subnet conflict: the outer Molecule container uses podman's default
+# 10.88.0.0/16 subnet, so reconfigure the inner podman to use 10.89.0.0/16.
+RUN printf '[network]\ndefault_subnet = "10.89.0.0/16"\n' > /etc/containers/containers.conf
+
+# Use fuse-overlayfs for inner podman storage. Native overlay-on-overlay fails
+# in nested containers when metacopy=on (RHEL default), causing pod infra
+# container starts to error with "rootfs-overlay: creating overlay failed".
+RUN sed -i \
+    -e 's|^#mount_program.*|mount_program = "/usr/bin/fuse-overlayfs"|' \
+    -e 's|^mountopt = .*|mountopt = "nodev"|' \
+    /etc/containers/storage.conf
+
+# Set up rootless podman / user systemd prerequisites
+RUN mkdir -p /run/user/0 && chmod 700 /run/user/0 && \
+    mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/root
+
+# Override PAM config for systemd-user to bypass pam_unix.so authentication.
+# On Podman 4.x (GHA runners), unix_chkpwd cannot run inside containers even
+# with --privileged, causing "could not obtain user info" PAM errors when
+# starting user@0.service. This is safe for CI/testing containers only.
+RUN printf '%s\n' \
+    'account  sufficient pam_permit.so' \
+    'session  required   pam_loginuid.so' \
+    'session  optional   pam_systemd.so' \
+    > /etc/pam.d/systemd-user
+
+ENV XDG_RUNTIME_DIR=/run/user/0
+
+VOLUME ["/sys/fs/cgroup"]
+
+CMD ["/usr/lib/systemd/systemd"]

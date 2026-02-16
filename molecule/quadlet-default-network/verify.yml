@@ -1,0 +1,100 @@
+---
+- name: Verify podman_default_network behavior in quadlet mode
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Find all quadlet files
+      ansible.builtin.find:
+        paths: /root/.config/containers/systemd
+        patterns:
+          - "*.container"
+          - "*.pod"
+          - "*.network"
+      register: quadlet_files
+
+    - name: Collect quadlet filenames
+      ansible.builtin.set_fact:
+        quadlet_names: "{{ quadlet_files.files | map(attribute='path') | map('basename') | sort }}"
+
+    - name: Assert expected quadlet files exist
+      ansible.builtin.assert:
+        that:
+          - "'mydefault.network' in quadlet_names"
+          - "'testpod.pod' in quadlet_names"
+          - "'pod-container.container' in quadlet_names"
+          - "'standalone-container.container' in quadlet_names"
+        fail_msg: "Missing quadlet files. Found: {{ quadlet_names }}"
+
+    - name: Read testpod.pod quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/testpod.pod
+      register: pod_quadlet
+
+    - name: Debug pod quadlet content
+      ansible.builtin.debug:
+        msg: "Pod quadlet content:\n{{ pod_quadlet.content | b64decode }}"
+
+    - name: Assert pod quadlet has .network suffix in Network directive
+      ansible.builtin.assert:
+        that:
+          - "'[Pod]' in pod_quadlet.content | b64decode"
+          - "'PodName=testpod' in pod_quadlet.content | b64decode"
+          - "'Network=mydefault.network' in pod_quadlet.content | b64decode"
+        fail_msg: "Pod quadlet should have 'Network=mydefault.network' but got: {{ pod_quadlet.content | b64decode }}"
+
+    - name: Read standalone-container.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/standalone-container.container
+      register: container_quadlet
+
+    - name: Debug container quadlet content
+      ansible.builtin.debug:
+        msg: "Container quadlet content:\n{{ container_quadlet.content | b64decode }}"
+
+    - name: Assert standalone container quadlet has .network suffix in Network directive
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=standalone-container' in container_quadlet.content | b64decode"
+          - "'Network=mydefault.network' in container_quadlet.content | b64decode"
+        fail_msg: "Container quadlet should have 'Network=mydefault.network' but got: {{ container_quadlet.content | b64decode }}"
+
+    - name: Read pod-container.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/pod-container.container
+      register: pod_container_quadlet
+
+    - name: Debug pod container quadlet content
+      ansible.builtin.debug:
+        msg: "Pod container quadlet content:\n{{ pod_container_quadlet.content | b64decode }}"
+
+    - name: Assert pod container does not have Network directive (uses pod networking)
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=pod-container' in pod_container_quadlet.content | b64decode"
+          - "'Pod=testpod.pod' in pod_container_quadlet.content | b64decode"
+          - "'Network=' not in pod_container_quadlet.content | b64decode"
+        fail_msg: "Container in pod should not have Network directive: {{ pod_container_quadlet.content | b64decode }}"
+
+    # Verify runtime: check that pods and containers are actually running
+    - name: Get pod status
+      ansible.builtin.command: podman pod ps --format "{{ '{{' }}.Name{{ '}}' }}"
+      register: pods
+      changed_when: false
+
+    - name: Assert pod exists
+      ansible.builtin.assert:
+        that: "'testpod' in pods.stdout"
+        fail_msg: "Pod 'testpod' not found. Pods: {{ pods.stdout }}"
+
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert all containers are running
+      ansible.builtin.assert:
+        that:
+          - "'pod-container' in containers.stdout"
+          - "'standalone-container' in containers.stdout"
+        fail_msg: "Missing containers. Running: {{ containers.stdout }}"

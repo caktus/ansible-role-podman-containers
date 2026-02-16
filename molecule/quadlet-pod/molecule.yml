@@ -1,0 +1,79 @@
+---
+# Scenario: Quadlet mode with a pod and standalone containers on a shared network.
+# Tests that pods and independent containers can coexist in quadlet mode.
+# Requires podman 5.0+ for .pod quadlet support (Ubuntu 25.10+ ships 5.4).
+driver:
+  name: podman
+
+platforms:
+  - name: ubuntu
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+  - name: rhel
+    image: quay.io/centos/centos:stream9
+    dockerfile: ../Dockerfile.rhel.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: ../prepare.yml
+    converge: ../converge.yml
+  inventory:
+    group_vars:
+      all:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: true
+        podman_build_repos: []
+        podman_networks:
+          - name: shared
+        podman_pods:
+          - name: api
+            publish:
+              - "8080:80"
+            network:
+              - shared.network
+        podman_containers:
+          # Containers inside the pod
+          - name: api-web
+            image: docker.io/traefik/whoami
+            tag: latest
+            pod: api
+          - name: api-worker
+            image: docker.io/library/alpine
+            tag: latest
+            pod: api
+            command: sleep infinity
+            env_as_file:
+              ROLE: worker
+          # Standalone container outside the pod
+          - name: redis
+            image: docker.io/redis
+            tag: "7-alpine"
+            network:
+              - shared.network
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

@@ -1,0 +1,76 @@
+---
+# Scenario: Legacy mode with a single pod containing multiple containers.
+# Tests the traditional `podman generate systemd` workflow.
+driver:
+  name: podman
+
+platforms:
+  - name: ubuntu
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+  - name: rhel
+    image: quay.io/centos/centos:stream9
+    dockerfile: ../Dockerfile.rhel.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: ../prepare.yml
+    converge: ../converge.yml
+  inventory:
+    group_vars:
+      all:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: false
+        podman_build_repos: []
+        podman_networks: []
+        podman_pods:
+          - name: webapp
+            publish:
+              - "8080:80"
+        podman_containers:
+          - name: web
+            image: docker.io/traefik/whoami
+            tag: latest
+            pod: webapp
+          - name: redis
+            image: docker.io/redis
+            tag: "7-alpine"
+            pod: webapp
+          - name: worker
+            image: docker.io/alpine
+            tag: latest
+            pod: webapp
+            command: sh -c 'echo worker started && sleep infinity'
+            log_driver: k8s-file
+            log_opt:
+              path: /root/log/worker.log
+            env_as_file:
+              ROLE: worker
+              QUEUE: default
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

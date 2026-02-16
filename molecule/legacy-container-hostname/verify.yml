@@ -1,0 +1,81 @@
+---
+- name: Verify legacy containers with hostname inheritance
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert containers are running
+      ansible.builtin.assert:
+        that:
+          - "'web' in containers.stdout"
+          - "'redis' in containers.stdout"
+        fail_msg: "Missing containers. Running: {{ containers.stdout }}"
+
+    - name: Check web container systemd unit
+      ansible.builtin.slurp:
+        src: /root/.config/systemd/user/container-web.service
+      register: web_unit
+
+    - name: Assert web container uses %H for hostname
+      ansible.builtin.assert:
+        that:
+          - '"%H" in (web_unit.content | b64decode)'
+        fail_msg: "Web container unit does not contain %H for hostname"
+
+    - name: Check redis container systemd unit
+      ansible.builtin.slurp:
+        src: /root/.config/systemd/user/container-redis.service
+      register: redis_unit
+
+    - name: Assert redis container uses %H for hostname
+      ansible.builtin.assert:
+        that:
+          - '"%H" in (redis_unit.content | b64decode)'
+        fail_msg: "Redis container unit does not contain %H for hostname"
+
+    - name: Get host hostname
+      ansible.builtin.command: hostname
+      register: host_hostname
+      changed_when: false
+
+    - name: Inspect web container
+      ansible.builtin.command: podman inspect web --format "{{ '{{' }}.Config.Hostname{{ '}}' }}"
+      register: web_hostname
+      changed_when: false
+
+    - name: Assert web container has host hostname
+      ansible.builtin.assert:
+        that:
+          - web_hostname.stdout == host_hostname.stdout
+        fail_msg: "Container hostname '{{ web_hostname.stdout }}' does not match host hostname '{{ host_hostname.stdout }}'"
+
+    - name: Test web container via HTTP
+      ansible.builtin.uri:
+        url: http://localhost:80
+        method: GET
+        timeout: 10
+        return_content: yes
+      retries: 3
+      delay: 5
+      register: whoami_response
+      until: whoami_response.status == 200
+
+    - name: Display whoami response
+      ansible.builtin.debug:
+        msg: |
+          Whoami response:
+          {{ whoami_response.content }}
+
+    - name: Assert hostname appears in whoami response
+      ansible.builtin.assert:
+        that:
+          - whoami_response.status == 200
+          - "host_hostname.stdout | lower in (whoami_response.content | lower)"
+        fail_msg: |
+          Hostname '{{ host_hostname.stdout }}' not found in whoami response.
+          Response: {{ whoami_response.content }}

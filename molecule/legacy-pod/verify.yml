@@ -1,0 +1,54 @@
+---
+- name: Verify legacy pod with containers
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Get pod info
+      ansible.builtin.command: podman pod ps --format "{{ '{{' }}.Name{{ '}}' }}"
+      register: pods
+      changed_when: false
+
+    - name: Assert pod exists
+      ansible.builtin.assert:
+        that: "'webapp' in pods.stdout"
+        fail_msg: "Pod 'webapp' not found. Pods: {{ pods.stdout }}"
+
+    - name: Get containers in the pod
+      ansible.builtin.command: podman ps --pod --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert all containers are running
+      ansible.builtin.assert:
+        that:
+          - "'web' in containers.stdout"
+          - "'redis' in containers.stdout"
+          - "'worker' in containers.stdout"
+        fail_msg: "Missing containers. Running: {{ containers.stdout }}"
+
+    - name: Check worker env file was written
+      ansible.builtin.stat:
+        path: /root/env/worker.env
+      register: env_file
+
+    - name: Assert env file exists with restricted permissions
+      ansible.builtin.assert:
+        that:
+          - env_file.stat.exists
+          - env_file.stat.mode == '0600'
+        fail_msg: "Env file missing or wrong permissions: {{ env_file.stat }}"
+
+    # ------------------------------------------------------------------
+    # Verify container logging to file works in legacy mode
+    # ------------------------------------------------------------------
+
+    - name: Check worker log file exists
+      ansible.builtin.stat:
+        path: /root/log/worker.log
+      register: log_file
+
+    - name: Assert log file was created
+      ansible.builtin.assert:
+        that: log_file.stat.exists
+        fail_msg: "Worker log file /root/log/worker.log not found. log_opt is not working in legacy mode."

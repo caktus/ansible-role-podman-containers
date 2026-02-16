@@ -1,0 +1,143 @@
+---
+- name: Verify quadlet mode with pods and standalone containers
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Find all quadlet files
+      ansible.builtin.find:
+        paths: /root/.config/containers/systemd
+        patterns:
+          - "*.container"
+          - "*.pod"
+          - "*.network"
+      register: quadlet_files
+
+    - name: Collect quadlet filenames
+      ansible.builtin.set_fact:
+        quadlet_names: "{{ quadlet_files.files | map(attribute='path') | map('basename') | sort }}"
+
+    - name: Assert expected quadlet files exist
+      ansible.builtin.assert:
+        that:
+          - "'api.pod' in quadlet_names"
+          - "'api-web.container' in quadlet_names"
+          - "'api-worker.container' in quadlet_names"
+          - "'redis.container' in quadlet_names"
+          - "'shared.network' in quadlet_names"
+        fail_msg: "Missing quadlet files. Found: {{ quadlet_names }}"
+
+    - name: Read api.pod quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/api.pod
+      register: pod_quadlet
+
+    - name: Assert pod quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'[Pod]' in pod_quadlet.content | b64decode"
+          - "'PodName=api' in pod_quadlet.content | b64decode"
+          - "'PublishPort=8080:80' in pod_quadlet.content | b64decode"
+          - "'Network=shared.network' in pod_quadlet.content | b64decode"
+        fail_msg: "api.pod quadlet content is incorrect: {{ pod_quadlet.content | b64decode }}"
+
+    - name: Read api-web.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/api-web.container
+      register: web_quadlet
+
+    - name: Assert api-web quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=api-web' in web_quadlet.content | b64decode"
+          - "'Image=docker.io/traefik/whoami:latest' in web_quadlet.content | b64decode"
+          - "'Pod=api.pod' in web_quadlet.content | b64decode"
+        fail_msg: "api-web.container quadlet content is incorrect: {{ web_quadlet.content | b64decode }}"
+
+    - name: Read api-worker.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/api-worker.container
+      register: worker_quadlet
+
+    - name: Assert api-worker quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=api-worker' in worker_quadlet.content | b64decode"
+          - "'Image=docker.io/library/alpine:latest' in worker_quadlet.content | b64decode"
+          - "'Pod=api.pod' in worker_quadlet.content | b64decode"
+          - "'EnvironmentFile=' in worker_quadlet.content | b64decode"
+        fail_msg: "api-worker.container quadlet content is incorrect: {{ worker_quadlet.content | b64decode }}"
+
+    - name: Read redis.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/redis.container
+      register: redis_quadlet
+
+    - name: Assert redis quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=redis' in redis_quadlet.content | b64decode"
+          - "'Image=docker.io/redis:7-alpine' in redis_quadlet.content | b64decode"
+          - "'Network=shared.network' in redis_quadlet.content | b64decode"
+        fail_msg: "redis.container quadlet content is incorrect."
+
+    - name: Read shared.network quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/shared.network
+      register: network_quadlet
+
+    - name: Assert network quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'[Network]' in network_quadlet.content | b64decode"
+        fail_msg: "shared.network quadlet content is incorrect."
+
+    - name: Check api-worker env file exists with correct permissions
+      ansible.builtin.stat:
+        path: /root/env/api-worker.env
+      register: worker_env
+
+    - name: Assert env file has restricted permissions
+      ansible.builtin.assert:
+        that:
+          - worker_env.stat.exists
+          - worker_env.stat.mode == '0600'
+        fail_msg: "Worker env file missing or wrong permissions."
+
+    - name: Read worker env file
+      ansible.builtin.slurp:
+        src: /root/env/api-worker.env
+      register: worker_env_content
+
+    - name: Assert worker env file has expected variables
+      ansible.builtin.assert:
+        that:
+          - "'ROLE=worker' in worker_env_content.content | b64decode"
+        fail_msg: "Worker env file content is incorrect."
+
+    # ------------------------------------------------------------------
+    # Verify pods and containers are actually running via systemd quadlets
+    # ------------------------------------------------------------------
+
+    - name: Get pod status
+      ansible.builtin.command: podman pod ps --format "{{ '{{' }}.Name{{ '}}' }}"
+      register: pods
+      changed_when: false
+
+    - name: Assert pod exists
+      ansible.builtin.assert:
+        that: "'api' in pods.stdout"
+        fail_msg: "Pod 'api' not found. Pods: {{ pods.stdout }}"
+
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert all containers are running
+      ansible.builtin.assert:
+        that:
+          - "'api-web' in containers.stdout"
+          - "'api-worker' in containers.stdout"
+          - "'redis' in containers.stdout"
+        fail_msg: "Missing containers. Running: {{ containers.stdout }}"

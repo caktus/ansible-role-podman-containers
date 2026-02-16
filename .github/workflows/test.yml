@@ -1,0 +1,81 @@
+---
+name: Molecule Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/test.yml"
+      - "molecule/**"
+      - "tasks/**"
+      - "defaults/**"
+      - "handlers/**"
+  pull_request:
+    paths:
+      - ".github/workflows/test.yml"
+      - "molecule/**"
+      - "tasks/**"
+      - "defaults/**"
+      - "handlers/**"
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run pre-commit checks
+        run: uv run pre-commit run --all-files
+
+  molecule:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - default
+          - build-image
+          - legacy-pod
+          - legacy-container-hostname
+          - quadlet
+          - quadlet-default-network
+          - quadlet-pod
+          - quadlet-container-hostname
+          - quadlet-restart
+          - podman49-logging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Molecule syntax (${{ matrix.scenario }})
+        run: uv run molecule syntax -s ${{ matrix.scenario }}
+
+      - name: Molecule create (${{ matrix.scenario }})
+        run: uv run molecule create -s ${{ matrix.scenario }}
+
+      - name: Molecule converge (${{ matrix.scenario }})
+        run: uv run molecule converge -s ${{ matrix.scenario }}
+
+      - name: Molecule verify (${{ matrix.scenario }})
+        run: uv run molecule verify -s ${{ matrix.scenario }}
+
+      - name: Molecule destroy (${{ matrix.scenario }})
+        if: always()
+        run: uv run molecule destroy -s ${{ matrix.scenario }}

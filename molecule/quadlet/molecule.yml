@@ -1,0 +1,73 @@
+---
+# Scenario: Quadlet mode with a network and standalone containers (no pod).
+# Tests the modern quadlet workflow where containers communicate via a shared network.
+driver:
+  name: podman
+
+platforms:
+  - name: ubuntu
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+  - name: rhel
+    image: quay.io/centos/centos:stream9
+    dockerfile: ../Dockerfile.rhel.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: ../prepare.yml
+    converge: ../converge.yml
+  inventory:
+    group_vars:
+      all:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: true
+        podman_default_network: appnet
+        podman_build_repos: []
+        podman_pods: []
+        podman_networks:
+          - name: appnet
+        podman_containers:
+          - name: frontend
+            image: docker.io/traefik/whoami
+            tag: latest
+            publish:
+              - "8080:80"
+          - name: backend
+            image: docker.io/traefik/whoami
+            tag: latest
+            log_driver: k8s-file
+            log_opt:
+              path: /root/log/backend.log
+            env_as_file:
+              APP_NAME: backend
+              DATABASE_URL: "postgres://db:5432/app"
+          - name: cache
+            image: docker.io/redis
+            tag: "7-alpine"
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

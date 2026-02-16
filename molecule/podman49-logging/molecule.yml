@@ -1,0 +1,63 @@
+---
+# Scenario: Quadlet mode with PodmanArgs logging workaround for Podman < 5.0.
+# Tests container logging on Ubuntu 24.04 (Podman 4.9) using the PodmanArgs= directive
+# instead of the unsupported LogDriver=/LogOpt= directives.
+driver:
+  name: podman
+
+platforms:
+  - name: ubuntu2404
+    image: docker.io/library/ubuntu:noble
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: ../prepare.yml
+    converge: ../converge.yml
+  inventory:
+    group_vars:
+      all:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: true
+        podman_default_network: appnet
+        podman_build_repos: []
+        podman_pods: []
+        podman_networks:
+          - name: appnet
+        podman_containers:
+          - name: web
+            image: docker.io/traefik/whoami
+            tag: latest
+            publish:
+              - "8080:80"
+            # Use PodmanArgs workaround for Podman 4.9 (no LogDriver/LogOpt support)
+            quadlet_options:
+              - "PodmanArgs=--log-driver=k8s-file --log-opt path=/root/log/web.log"
+          - name: worker
+            image: docker.io/alpine
+            tag: latest
+            command: sh -c 'echo worker started && sleep infinity'
+            # Another container using the PodmanArgs workaround
+            quadlet_options:
+              - "PodmanArgs=--log-driver=k8s-file --log-opt path=/root/log/worker.log --log-opt max-size=10mb"
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

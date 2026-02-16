@@ -1,7 +1,12 @@
 ---
 galaxy_info:
+  role_name: podman_containers
+  namespace: caktus
   author: Caktus Consulting Group, LLC
   description: Run containers with Podman on Ubuntu and RHEL-compatible servers.
   company: Caktus Consulting Group, LLC
   license: BSD
 dependencies: []
+
+collections:
+  - containers.podman

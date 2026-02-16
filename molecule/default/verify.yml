@@ -1,0 +1,85 @@
+---
+- name: Verify README quickstart works
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Check quadlet directory exists
+      ansible.builtin.stat:
+        path: /root/.config/containers/systemd
+      register: quadlet_dir
+
+    - name: Assert quadlet directory was created
+      ansible.builtin.assert:
+        that: quadlet_dir.stat.isdir
+        fail_msg: "Quadlet directory not found."
+
+    - name: Find quadlet files
+      ansible.builtin.find:
+        paths: /root/.config/containers/systemd
+        patterns:
+          - "*.container"
+          - "*.network"
+      register: quadlet_files
+
+    - name: Assert expected quadlet files exist
+      ansible.builtin.assert:
+        that:
+          - quadlet_files.files | map(attribute='path') | map('basename') | sort
+            == ['app.network', 'whoami.container']
+        fail_msg: >
+          Expected 2 quadlet files (1 container + 1 network).
+          Found: {{ quadlet_files.files | map(attribute='path') | map('basename') | list }}
+
+    - name: Read whoami.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/whoami.container
+      register: whoami_quadlet
+
+    - name: Assert whoami quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=whoami' in whoami_quadlet.content | b64decode"
+          - "'Image=docker.io/traefik/whoami:latest' in whoami_quadlet.content | b64decode"
+          - "'PublishPort=8080:80' in whoami_quadlet.content | b64decode"
+          - "'Network=app.network' in whoami_quadlet.content | b64decode"
+        fail_msg: "whoami.container quadlet content is incorrect."
+
+    - name: Read app.network quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/app.network
+      register: network_quadlet
+
+    - name: Assert network quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'[Network]' in network_quadlet.content | b64decode"
+        fail_msg: "app.network quadlet content is incorrect."
+
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert whoami container is running
+      ansible.builtin.assert:
+        that:
+          - "'whoami' in containers.stdout"
+        fail_msg: "whoami container not running. Running: {{ containers.stdout }}"
+
+    - name: Test whoami container with curl
+      ansible.builtin.uri:
+        url: http://localhost:8080/
+        method: GET
+        return_content: yes
+      register: whoami_response
+      retries: 5
+      delay: 2
+      until: whoami_response.status == 200
+
+    - name: Assert whoami response is valid
+      ansible.builtin.assert:
+        that:
+          - whoami_response.status == 200
+          - "'OK' in whoami_response.msg"
+        fail_msg: "whoami container did not respond correctly"

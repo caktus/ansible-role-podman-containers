@@ -1,0 +1,75 @@
+---
+# Scenario: Test podman_default_network behavior in quadlet mode.
+# This scenario tests that both pods and containers properly get the .network
+# suffix when using podman_default_network in quadlet mode, ensuring systemd
+# dependencies are correctly set up.
+driver:
+  name: podman
+
+platforms:
+  - name: ubuntu
+    image: docker.io/library/ubuntu:questing
+    dockerfile: ../Dockerfile.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+  - name: rhel
+    image: quay.io/centos/centos:stream9
+    dockerfile: ../Dockerfile.rhel.j2
+    command: ""
+    pre_build_image: false
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: ../prepare.yml
+    converge: ../converge.yml
+  inventory:
+    group_vars:
+      all:
+        podman_user: root
+        podman_user_home: /root
+        podman_use_quadlets: true
+        podman_build_repos: []
+        # Define a default network that should be used by pods and containers
+        # that don't explicitly specify a network
+        podman_default_network: mydefault
+        podman_networks:
+          - name: mydefault
+        podman_pods:
+          # Pod without explicit network - should use podman_default_network with .network suffix
+          - name: testpod
+            publish:
+              - "9090:90"
+        podman_containers:
+          # Container in a pod - should NOT get network (pods manage networking)
+          - name: pod-container
+            image: docker.io/library/alpine
+            tag: latest
+            pod: testpod
+            command: sleep infinity
+          # Standalone container without explicit network - should use podman_default_network with .network suffix
+          - name: standalone-container
+            image: docker.io/library/alpine
+            tag: latest
+            command: sleep infinity
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - destroy
+
+verifier:
+  name: ansible

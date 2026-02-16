@@ -1,0 +1,42 @@
+FROM {{ item.image }}
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV container=podman
+
+# Install packages needed by the role and molecule
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        systemd systemd-sysv \
+        python3 sudo bash git openssh-client \
+        podman dbus-user-session fuse-overlayfs catatonit ca-certificates nftables && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    # Remove unnecessary systemd services that may interfere in containers
+    rm -f /lib/systemd/system/multi-user.target.wants/* && \
+    rm -f /etc/systemd/system/*.wants/* && \
+    rm -f /lib/systemd/system/local-fs.target.wants/* && \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev* && \
+    rm -f /lib/systemd/system/sockets.target.wants/*initctl* && \
+    rm -f /lib/systemd/system/basic.target.wants/* && \
+    rm -f /lib/systemd/system/anaconda.target.wants/*
+
+# Make network-online.target reachable on boot so quadlet pod services don't
+# hang polling for it. Mask the wait-online service (no real network stack in a
+# container) and want the target from multi-user.target so it activates at boot.
+RUN ln -sf /dev/null /etc/systemd/system/systemd-networkd-wait-online.service && \
+    mkdir -p /etc/systemd/system/multi-user.target.wants && \
+    ln -sf /lib/systemd/system/network-online.target /etc/systemd/system/multi-user.target.wants/network-online.target
+
+# Avoid subnet conflict: the outer Molecule container uses podman's default
+# 10.88.0.0/16 subnet, so reconfigure the inner podman to use 10.89.0.0/16.
+RUN printf '[network]\ndefault_subnet = "10.89.0.0/16"\n' > /etc/containers/containers.conf
+
+# Set up rootless podman / user systemd prerequisites
+RUN mkdir -p /run/user/0 && chmod 700 /run/user/0 && \
+    mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/root
+
+ENV XDG_RUNTIME_DIR=/run/user/0
+
+VOLUME ["/sys/fs/cgroup"]
+
+CMD ["/lib/systemd/systemd"]
