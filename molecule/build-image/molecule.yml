@@ -34,7 +34,6 @@ provisioner:
         podman_user: root
         podman_user_home: /root
         podman_use_quadlets: true
-        podman_use_env_files: true
         podman_build_repos:
           - repo: https://github.com/crccheck/docker-hello-world.git
             version: master

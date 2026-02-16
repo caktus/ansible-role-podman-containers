@@ -12,7 +12,6 @@
     _podman_user: root
     _podman_user_home: /root
     _podman_use_quadlets: true
-    _podman_use_env_files: true
     _podman_build_repos: []
     _podman_networks:
       - name: testnet
@@ -38,7 +37,7 @@
         tag: "{{ _test_tag }}"
         pod: testpod
         command: sleep infinity
-        env:
+        env_as_file:
           WORKER_MODE: batch
       - name: solo-changed
         image: "{{ _test_image }}"
@@ -46,7 +45,7 @@
         command: sleep infinity
         network:
           - testnet.network
-        env:
+        env_as_file:
           SOLO_VAR: alpha
       - name: solo-unchanged
         image: "{{ _test_image }}"
@@ -54,7 +53,7 @@
         command: sleep infinity
         network:
           - testnet.network
-        env:
+        env_as_file:
           SOLO_VAR: beta
 
     # Container definitions with modified env vars (run 3)
@@ -69,7 +68,7 @@
         tag: "{{ _test_tag }}"
         pod: testpod
         command: sleep infinity
-        env:
+        env_as_file:
           WORKER_MODE: stream # CHANGED from 'batch'
       - name: solo-changed
         image: "{{ _test_image }}"
@@ -77,7 +76,7 @@
         command: sleep infinity
         network:
           - testnet.network
-        env:
+        env_as_file:
           SOLO_VAR: gamma # CHANGED from 'alpha'
       - name: solo-unchanged
         image: "{{ _test_image }}"
@@ -85,7 +84,7 @@
         command: sleep infinity
         network:
           - testnet.network
-        env:
+        env_as_file:
           SOLO_VAR: beta # UNCHANGED
 
   tasks:
@@ -99,7 +98,6 @@
         podman_user: "{{ _podman_user }}"
         podman_user_home: "{{ _podman_user_home }}"
         podman_use_quadlets: "{{ _podman_use_quadlets }}"
-        podman_use_env_files: "{{ _podman_use_env_files }}"
         podman_build_repos: "{{ _podman_build_repos }}"
         podman_networks: "{{ _podman_networks }}"
         podman_pods: "{{ _podman_pods }}"
@@ -138,7 +136,6 @@
         podman_user: "{{ _podman_user }}"
         podman_user_home: "{{ _podman_user_home }}"
         podman_use_quadlets: "{{ _podman_use_quadlets }}"
-        podman_use_env_files: "{{ _podman_use_env_files }}"
         podman_build_repos: "{{ _podman_build_repos }}"
         podman_networks: "{{ _podman_networks }}"
         podman_pods: "{{ _podman_pods }}"
@@ -180,7 +177,6 @@
         podman_user: "{{ _podman_user }}"
         podman_user_home: "{{ _podman_user_home }}"
         podman_use_quadlets: "{{ _podman_use_quadlets }}"
-        podman_use_env_files: "{{ _podman_use_env_files }}"
         podman_build_repos: "{{ _podman_build_repos }}"
         podman_networks: "{{ _podman_networks }}"
         podman_pods: "{{ _podman_pods }}"

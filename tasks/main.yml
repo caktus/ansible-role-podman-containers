@@ -43,7 +43,7 @@
   when: podman_use_quadlets
 
 - name: Manage container environment files
-  when: podman_use_env_files
+  when: podman_containers | selectattr('env_as_file', 'defined') | list | length > 0
   block:
     - name: Create env file directory
       ansible.builtin.file:
@@ -56,18 +56,17 @@
     - name: Write container environment files
       ansible.builtin.copy:
         content: |
-          {% for key in (item.env.keys() | sort) %}
-          {{ key }}={{ item.env[key] | string | regex_replace('\n', '\\n') }}
+          {% for key in (item.env_as_file.keys() | sort) %}
+          {{ key }}={{ item.env_as_file[key] | string | regex_replace('\n', '\\n') }}
           {% endfor %}
         dest: "{{ podman_env_file_dir }}/{{ item.name }}.env"
         mode: "0600"
         owner: "{{ podman_user }}"
         group: "{{ podman_user }}"
-      # Loop through all the containers with an "env" defined and either (a) NO state or (b) a state other than "absent"
       loop: >
         {{
-          (podman_containers | selectattr('env', 'defined') | rejectattr('state', 'defined') | list) +
-          (podman_containers | selectattr('env', 'defined') | selectattr('state', 'defined') | rejectattr('state', 'equalto', 'absent') | list)
+          (podman_containers | selectattr('env_as_file', 'defined') | rejectattr('state', 'defined') | list) +
+          (podman_containers | selectattr('env_as_file', 'defined') | selectattr('state', 'defined') | rejectattr('state', 'equalto', 'absent') | list)
         }}
       loop_control:
         label: "{{ item.name }}"
@@ -76,7 +75,7 @@
       ansible.builtin.file:
         path: "{{ podman_env_file_dir }}/{{ item.name }}.env"
         state: absent
-      loop: "{{ podman_containers | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') | list }}"
+      loop: "{{ podman_containers | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') | selectattr('env_as_file', 'defined') | list }}"
       loop_control:
         label: "{{ item.name }}"
 
@@ -257,7 +256,14 @@
     workdir: "{{ item.workdir | default(omit) }}"
     volumes: "{{ item.volumes | default(omit) }}"
     env: "{{ item.env | default(omit) }}"
-    env_file: "{{ item.env_file | default((podman_use_env_files and item.env is defined) | ternary([podman_env_file_dir ~ '/' ~ item.name ~ '.env'], omit)) }}"
+    env_file: >-
+      {%- if item.env_file | default(false) -%}
+        {{ item.env_file }}
+      {%- elif item.env_as_file is defined -%}
+        {{ [podman_env_file_dir ~ '/' ~ item.name ~ '.env'] }}
+      {%- else -%}
+        {{ omit }}
+      {%- endif -%}
     log_driver: "{{ item.log_driver | default(podman_log_driver) | default(omit) }}"
     log_opt: "{{ podman_use_quadlets | ternary(omit, item.log_opt | default(podman_log_opt) | default(omit)) }}"
     user: "{{ item.user | default(omit) }}"
@@ -299,8 +305,8 @@
     security_opt: "{{ item.security_opt | default(omit) }}"
     read_only: "{{ item.read_only | default(omit) }}"
     label: >-
-      {%- if podman_use_env_files and item.env is defined -%}
-        {{ (item.label | default({})) | combine({'io.podman.env_file_checksum': (item.env | to_json | hash('sha256'))[:16]}) }}
+      {%- if item.env_as_file is defined -%}
+        {{ (item.label | default({})) | combine({'io.podman.env_file_checksum': (item.env_as_file | to_json | hash('sha256'))[:16]}) }}
       {%- else -%}
         {{ item.label | default(omit) }}
       {%- endif -%}

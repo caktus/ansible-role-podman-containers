@@ -36,7 +36,6 @@ provisioner:
         podman_user: root
         podman_user_home: /root
         podman_use_quadlets: true
-        podman_use_env_files: false
         podman_build_repos: []
         # Define a default network that should be used by pods and containers
         # that don't explicitly specify a network

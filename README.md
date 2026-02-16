@@ -62,6 +62,40 @@ After deploying, test with `curl http://localhost:8080`.
 
 See [Podman Quadlet docs](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html) for `quadlet_options`.
 
+### Environment Files (`env_as_file`)
+
+Use `env_as_file` on a container to write environment variables to a restricted file (mode `0600`)
+instead of embedding them in systemd units. This keeps secrets out of `ps` output and unit files.
+
+```yaml
+podman_containers:
+  - name: web
+    image: myapp
+    tag: latest
+    env_as_file:
+      DATABASE_URL: "postgres://db:5432/app"
+      SECRET_KEY: "s3kret"
+```
+
+The role writes the dictionary to `<podman_env_file_dir>/<container_name>.env` and passes it as
+`env_file` to the container module. A checksum label is added so the container is recreated when
+values change.
+
+If a container sets **both** `env_file` and `env_as_file`, the file is still written but the
+role uses the explicit `env_file` value. You must include the generated file in your list yourself:
+
+```yaml
+podman_containers:
+  - name: web
+    image: myapp
+    tag: latest
+    env_as_file:
+      SECRET_KEY: "s3kret"
+    env_file:
+      - /home/deploy/env/web.env # the generated file
+      - /home/deploy/env/extra.env # additional file
+```
+
 ## Upgrade Guide
 
 This section covers migrating from older versions of the role.
