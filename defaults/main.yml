@@ -91,3 +91,32 @@ podman_quadlet_dir: "{{ podman_user_home }}/.config/containers/systemd/"
 
 # Directory for env_as_file environment files (no trailing slash)
 podman_env_file_dir: "{{ podman_user_home }}/env"
+
+# --- Socket activation ---
+# List of systemd socket units to create. Each binds a port and passes the
+# file descriptor to a container service on activation.
+# Each entry:
+#   name: http              # Creates ~/.config/systemd/user/http.socket
+#   fd_name: web            # FileDescriptorName — must match the Traefik entryPoint name
+#   port: 80                # ListenStream port
+#   service: traefik        # Service= directive (the container service to activate)
+podman_socket_units: []
+
+# --- Traefik ---
+podman_traefik_enabled: false
+podman_traefik_image: docker.io/traefik
+podman_traefik_tag: v3
+podman_traefik_config_dir: "{{ podman_user_home }}/traefik"
+podman_traefik_log_level: INFO
+podman_traefik_acme_email: ""           # Set to enable Let's Encrypt. Leave empty to disable ACME.
+podman_traefik_acme_storage: /etc/traefik/acme/acme.json
+podman_traefik_extra_volumes: []        # Additional volumes for the Traefik container
+podman_traefik_quadlet_options: []      # Extra quadlet directives for the Traefik container
+podman_traefik_extra_static_config: {}  # Deep-merged into traefik.yaml (advanced overrides)
+podman_traefik_container: {}            # Full override of the auto-generated Traefik container definition
+podman_traefik_middlewares: {}          # Dict merged into http.middlewares in middlewares.yaml
+
+# Numeric UID of podman_user. Required when using socket-proxy.
+# Set to: "{{ lookup('pipe', 'id -u ' + podman_user) }}"
+# or derive it in a task before the role runs.
+podman_uid: ""

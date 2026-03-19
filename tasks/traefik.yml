@@ -1,0 +1,81 @@
+---
+- name: Create Traefik config directory
+  ansible.builtin.file:
+    path: "{{ podman_traefik_config_dir }}"
+    state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0755"
+
+- name: Create Traefik ACME directory
+  ansible.builtin.file:
+    path: "{{ podman_traefik_config_dir }}/acme"
+    state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0700"
+
+- name: Template Traefik static config
+  ansible.builtin.template:
+    src: traefik-static.yml.j2
+    dest: "{{ podman_traefik_config_dir }}/traefik.yaml"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: restart traefik
+
+- name: Template Traefik middlewares config
+  ansible.builtin.template:
+    src: traefik-middlewares.yml.j2
+    dest: "{{ podman_traefik_config_dir }}/middlewares.yaml"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: restart traefik
+
+- name: Auto-register Traefik socket units
+  ansible.builtin.set_fact:
+    podman_socket_units: >-
+      {{
+        podman_socket_units + [
+          {"name": "http", "fd_name": "web", "port": 80, "service": "traefik"},
+          {"name": "https", "fd_name": "websecure", "port": 443, "service": "traefik"}
+        ]
+      }}
+
+- name: Build default Traefik container definition
+  ansible.builtin.set_fact:
+    podman_containers: >-
+      {{
+        [_traefik_default_container] + podman_containers
+      }}
+  vars:
+    _traefik_default_container:
+      name: traefik
+      image: "{{ podman_traefik_image }}"
+      tag: "{{ podman_traefik_tag }}"
+      pull: always
+      volumes: >-
+        {{
+          [
+            podman_traefik_config_dir ~ "/traefik.yaml:/etc/traefik/traefik.yaml:Z",
+            podman_traefik_config_dir ~ "/middlewares.yaml:/etc/traefik/middlewares.yaml:Z",
+            podman_traefik_config_dir ~ "/acme:/etc/traefik/acme:Z"
+          ] + podman_traefik_extra_volumes
+        }}
+      command: "--configFile=/etc/traefik/traefik.yaml"
+      quadlet_options: >-
+        {{
+          [
+            "[Unit]\nDescription=Traefik HTTP Proxy\nAfter=http.socket https.socket\nRequires=http.socket https.socket"
+          ] + podman_traefik_quadlet_options
+        }}
+  when: podman_traefik_container | length == 0
+
+- name: Use custom Traefik container definition
+  ansible.builtin.set_fact:
+    podman_containers: >-
+      {{
+        [podman_traefik_container] + podman_containers
+      }}
+  when: podman_traefik_container | length > 0
