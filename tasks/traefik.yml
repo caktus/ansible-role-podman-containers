@@ -37,10 +37,11 @@
   ansible.builtin.set_fact:
     podman_socket_units: >-
       {{
-        podman_socket_units + [
-          {"name": "http", "fd_name": "web", "port": 80, "service": "traefik"},
-          {"name": "https", "fd_name": "websecure", "port": 443, "service": "traefik"}
-        ]
+        podman_socket_units
+        + ([] if podman_socket_units | selectattr('name', 'equalto', 'http') | list | length > 0
+           else [{"name": "http", "fd_name": "web", "port": 80, "service": "traefik"}])
+        + ([] if podman_socket_units | selectattr('name', 'equalto', 'https') | list | length > 0
+           else [{"name": "https", "fd_name": "websecure", "port": 443, "service": "traefik"}])
       }}
 
 - name: Build default Traefik container definition

@@ -268,6 +268,7 @@ and the following deployment sequence:
               traefik.enable: "true"
               traefik.http.routers.web.rule: "Host(`example.com`)"
               traefik.http.routers.web.entrypoints: "websecure"
+              traefik.http.routers.web.middlewares: "retry,compress@file,security-headers@file"
               traefik.http.services.web.loadbalancer.server.port: "8000"
               traefik.http.services.web.loadbalancer.healthcheck.path: "/health"
               traefik.http.services.web.loadbalancer.healthcheck.interval: "5s"
