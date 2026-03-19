@@ -89,7 +89,8 @@
           - "'entryPoints' in traefik_static.content | b64decode"
           - "'web' in traefik_static.content | b64decode"
           - "'websecure' in traefik_static.content | b64decode"
-          - "'traefik-internal' in traefik_static.content | b64decode"
+          - "'traefik' in traefik_static.content | b64decode"
+          - "'127.0.0.1:8080' in traefik_static.content | b64decode"
           - "'tcp://socket-proxy:2375' in traefik_static.content | b64decode"
           - "'middlewares.yaml' in traefik_static.content | b64decode"
           - "'DEBUG' in traefik_static.content | b64decode"
@@ -159,7 +160,7 @@
       ansible.builtin.assert:
         that:
           - "'Label=traefik.enable=true' in whoami_quadlet.content | b64decode"
-          - "'Label=traefik.http.routers.whoami.rule=PathPrefix' in whoami_quadlet.content | b64decode"
+          - "'traefik.http.routers.whoami.rule=PathPrefix' in whoami_quadlet.content | b64decode"
           - "'Label=traefik.http.services.whoami.loadbalancer.server.port=80' in whoami_quadlet.content | b64decode"
           - "'Label=app.role=whoami' in whoami_quadlet.content | b64decode"
         fail_msg: "whoami.container quadlet labels are incorrect: {{ whoami_quadlet.content | b64decode }}"

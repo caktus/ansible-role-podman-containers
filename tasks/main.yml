@@ -388,6 +388,16 @@
     scope: user
     daemon_reload: true
 
+- name: Start socket units
+  ansible.builtin.systemd:
+    name: "{{ item.name }}.socket"
+    scope: user
+    state: started
+  loop: "{{ podman_socket_units }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: podman_socket_units | length > 0
+
 - name: (Re)start changed pod services
   ansible.builtin.systemd:
     name: "{{ podman_use_quadlets | ternary(item.item.name ~ '-pod.service', 'pod-' ~ item.item.name) }}"

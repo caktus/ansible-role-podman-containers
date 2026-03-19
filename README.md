@@ -154,9 +154,9 @@ Configure socket units via `podman_socket_units`:
 ```yaml
 podman_socket_units:
   - name: http
-    fd_name: web        # FileDescriptorName — must match the Traefik entryPoint name
+    fd_name: web # FileDescriptorName — must match the Traefik entryPoint name
     port: 80
-    service: traefik    # The container service to activate
+    service: traefik # The container service to activate
   - name: https
     fd_name: websecure
     port: 443
@@ -174,8 +174,8 @@ automatic container discovery via Podman socket labels.
 
 ```yaml
 podman_traefik_enabled: true
-podman_traefik_acme_email: "ops@example.com"   # Enable Let's Encrypt (omit to disable)
-podman_uid: "1001"                             # Numeric UID of podman_user
+podman_traefik_acme_email: "ops@example.com" # Enable Let's Encrypt (omit to disable)
+podman_uid: "1001" # Numeric UID of podman_user
 podman_use_quadlets: yes
 podman_default_network: app
 
@@ -207,27 +207,28 @@ podman_containers:
 ```
 
 When `podman_traefik_enabled` is true, the role automatically:
+
 1. Creates Traefik config files (`traefik.yaml`, `middlewares.yaml`)
 2. Registers HTTP/HTTPS socket units for socket activation
 3. Deploys the Traefik container with proper volume mounts
 
 ### Traefik Variables
 
-| Variable                               | Default                                     | Description                                     |
-| -------------------------------------- | ------------------------------------------- | ----------------------------------------------- |
-| `podman_traefik_enabled`               | `false`                                     | Enable Traefik proxy                            |
-| `podman_traefik_image`                 | `docker.io/traefik`                         | Traefik container image                         |
-| `podman_traefik_tag`                   | `v3`                                        | Traefik image tag                               |
-| `podman_traefik_config_dir`            | `{{ podman_user_home }}/traefik`            | Directory for Traefik config files              |
-| `podman_traefik_log_level`             | `INFO`                                      | Traefik log level                               |
-| `podman_traefik_acme_email`            | `""`                                        | ACME email (set to enable Let's Encrypt)        |
-| `podman_traefik_acme_storage`          | `/etc/traefik/acme/acme.json`               | ACME storage path inside the container          |
-| `podman_traefik_extra_volumes`         | `[]`                                        | Additional volumes for the Traefik container    |
-| `podman_traefik_quadlet_options`       | `[]`                                        | Extra quadlet directives for Traefik            |
-| `podman_traefik_extra_static_config`   | `{}`                                        | Deep-merged into `traefik.yaml`                 |
-| `podman_traefik_container`             | `{}`                                        | Full override of the Traefik container def      |
-| `podman_traefik_middlewares`           | `{}`                                        | Dict merged into `http.middlewares`             |
-| `podman_uid`                           | `""`                                        | Numeric UID of `podman_user` (for socket proxy) |
+| Variable                             | Default                          | Description                                     |
+| ------------------------------------ | -------------------------------- | ----------------------------------------------- |
+| `podman_traefik_enabled`             | `false`                          | Enable Traefik proxy                            |
+| `podman_traefik_image`               | `docker.io/traefik`              | Traefik container image                         |
+| `podman_traefik_tag`                 | `v3`                             | Traefik image tag                               |
+| `podman_traefik_config_dir`          | `{{ podman_user_home }}/traefik` | Directory for Traefik config files              |
+| `podman_traefik_log_level`           | `INFO`                           | Traefik log level                               |
+| `podman_traefik_acme_email`          | `""`                             | ACME email (set to enable Let's Encrypt)        |
+| `podman_traefik_acme_storage`        | `/etc/traefik/acme/acme.json`    | ACME storage path inside the container          |
+| `podman_traefik_extra_volumes`       | `[]`                             | Additional volumes for the Traefik container    |
+| `podman_traefik_quadlet_options`     | `[]`                             | Extra quadlet directives for Traefik            |
+| `podman_traefik_extra_static_config` | `{}`                             | Deep-merged into `traefik.yaml`                 |
+| `podman_traefik_container`           | `{}`                             | Full override of the Traefik container def      |
+| `podman_traefik_middlewares`         | `{}`                             | Dict merged into `http.middlewares`             |
+| `podman_uid`                         | `""`                             | Numeric UID of `podman_user` (for socket proxy) |
 
 ### Default Middlewares
 

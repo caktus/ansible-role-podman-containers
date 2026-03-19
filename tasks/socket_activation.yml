@@ -27,12 +27,11 @@
     daemon_reload: true
   when: socket_units_result is changed
 
-- name: Enable and start socket units
+- name: Enable socket units
   ansible.builtin.systemd:
     name: "{{ item.name }}.socket"
     scope: user
     enabled: true
-    state: started
   loop: "{{ podman_socket_units }}"
   loop_control:
     label: "{{ item.name }}"

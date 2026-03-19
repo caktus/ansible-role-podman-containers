@@ -44,6 +44,15 @@
            else [{"name": "https", "fd_name": "websecure", "port": 443, "service": "traefik"}])
       }}
 
+- name: Set Traefik unit section for quadlet
+  ansible.builtin.set_fact:
+    _traefik_unit_opts: |
+      [Unit]
+      Description=Traefik HTTP Proxy
+      After=http.socket https.socket
+      Requires=http.socket https.socket
+  when: podman_traefik_container | length == 0
+
 - name: Build default Traefik container definition
   ansible.builtin.set_fact:
     podman_containers: >-
@@ -67,9 +76,7 @@
       command: "--configFile=/etc/traefik/traefik.yaml"
       quadlet_options: >-
         {{
-          [
-            "[Unit]\nDescription=Traefik HTTP Proxy\nAfter=http.socket https.socket\nRequires=http.socket https.socket"
-          ] + podman_traefik_quadlet_options
+          [_traefik_unit_opts] + podman_traefik_quadlet_options
         }}
   when: podman_traefik_container | length == 0
 

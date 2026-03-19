@@ -28,7 +28,7 @@ provisioner:
   name: ansible
   playbooks:
     prepare: ../prepare.yml
-    converge: ../converge.yml
+    converge: converge.yml
   inventory:
     group_vars:
       all:
@@ -67,7 +67,7 @@ provisioner:
             label:
               traefik.enable: "true"
               traefik.http.routers.whoami.rule: "PathPrefix(`/`)"
-              traefik.http.routers.whoami.entrypoints: "traefik-internal"
+              traefik.http.routers.whoami.entrypoints: "traefik"
               traefik.http.services.whoami.loadbalancer.server.port: "80"
               traefik.http.services.whoami.loadbalancer.healthcheck.path: "/health"
               traefik.http.services.whoami.loadbalancer.healthcheck.interval: "2s"

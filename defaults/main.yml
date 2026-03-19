@@ -108,13 +108,13 @@ podman_traefik_image: docker.io/traefik
 podman_traefik_tag: v3
 podman_traefik_config_dir: "{{ podman_user_home }}/traefik"
 podman_traefik_log_level: INFO
-podman_traefik_acme_email: ""           # Set to enable Let's Encrypt. Leave empty to disable ACME.
+podman_traefik_acme_email: "" # Set to enable Let's Encrypt. Leave empty to disable ACME.
 podman_traefik_acme_storage: /etc/traefik/acme/acme.json
-podman_traefik_extra_volumes: []        # Additional volumes for the Traefik container
-podman_traefik_quadlet_options: []      # Extra quadlet directives for the Traefik container
-podman_traefik_extra_static_config: {}  # Deep-merged into traefik.yaml (advanced overrides)
-podman_traefik_container: {}            # Full override of the auto-generated Traefik container definition
-podman_traefik_middlewares: {}          # Dict merged into http.middlewares in middlewares.yaml
+podman_traefik_extra_volumes: [] # Additional volumes for the Traefik container
+podman_traefik_quadlet_options: [] # Extra quadlet directives for the Traefik container
+podman_traefik_extra_static_config: {} # Deep-merged into traefik.yaml (advanced overrides)
+podman_traefik_container: {} # Full override of the auto-generated Traefik container definition
+podman_traefik_middlewares: {} # Dict merged into http.middlewares in middlewares.yaml
 
 # Numeric UID of podman_user. Required when using socket-proxy.
 # Set to: "{{ lookup('pipe', 'id -u ' + podman_user) }}"
