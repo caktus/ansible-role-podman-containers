@@ -387,11 +387,38 @@
     enabled: true
     state: "{{ (item.changed or pod_containers_changed) | ternary('restarted', 'started') }}"
   vars:
+    # List of image names that were rebuilt in this run
+    rebuilt_images: "{{ image_build.results | selectattr('changed', 'equalto', true) | map(attribute='item.0.image_name') | list }}"
+    # Containers in this pod that changed (quadlet file changed OR image rebuilt)
     pod_containers_changed: >-
       {{
-        (container.results | selectattr('item.pod', 'defined') | selectattr('item.pod', 'equalto', item.item.name) | selectattr('changed', 'equalto', true) | list | length)
+        (container.results
+         | selectattr('item.pod', 'defined')
+         | selectattr('item.pod', 'equalto', item.item.name)
+         | selectattr('changed', 'equalto', true)
+         | list
+         | length)
         +
-        (container.results | selectattr('item.pod', 'defined') | selectattr('item.pod', 'equalto', item.item.name + '.pod') | selectattr('changed', 'equalto', true) | list | length)
+        (container.results
+         | selectattr('item.pod', 'defined')
+         | selectattr('item.pod', 'equalto', item.item.name + '.pod')
+         | selectattr('changed', 'equalto', true)
+         | list
+         | length)
+        +
+        (container.results
+         | selectattr('item.pod', 'defined')
+         | selectattr('item.pod', 'equalto', item.item.name)
+         | selectattr('item.image', 'in', rebuilt_images)
+         | list
+         | length)
+        +
+        (container.results
+         | selectattr('item.pod', 'defined')
+         | selectattr('item.pod', 'equalto', item.item.name + '.pod')
+         | selectattr('item.image', 'in', rebuilt_images)
+         | list
+         | length)
         > 0
       }}
   loop: "{{ pod.results }}"
@@ -405,7 +432,12 @@
     name: "{{ podman_use_quadlets | ternary(item.item.name ~ '.service', 'container-' ~ item.item.name) }}"
     scope: user
     enabled: true
-    state: "{{ item.changed | ternary('restarted', 'started') }}"
+    state: "{{ (item.changed or image_restarted) | ternary('restarted', 'started') }}"
+  vars:
+    # List of image names that were rebuilt in this run
+    rebuilt_images: "{{ image_build.results | selectattr('changed', 'equalto', true) | map(attribute='item.0.image_name') | list }}"
+    # Check if this container's image was rebuilt from a build repo
+    image_restarted: "{{ item.item.image in rebuilt_images }}"
   loop: "{{ container.results }}"
   loop_control:
     label: "{{ item.item.name }}"
