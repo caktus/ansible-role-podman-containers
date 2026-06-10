@@ -389,12 +389,10 @@
   vars:
     pod_containers_changed: >-
       {{
-        container.results
-        | selectattr('item.pod', 'defined')
-        | selectattr('item.pod', 'equalto', item.item.name)
-        | selectattr('changed', 'equalto', true)
-        | list
-        | length > 0
+        (container.results | selectattr('item.pod', 'defined') | selectattr('item.pod', 'equalto', item.item.name) | selectattr('changed', 'equalto', true) | list | length)
+        +
+        (container.results | selectattr('item.pod', 'defined') | selectattr('item.pod', 'equalto', item.item.name + '.pod') | selectattr('changed', 'equalto', true) | list | length)
+        > 0
       }}
   loop: "{{ pod.results }}"
   loop_control:

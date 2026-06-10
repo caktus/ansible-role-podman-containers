@@ -47,6 +47,14 @@
           - testnet.network
         env_as_file:
           SOLO_VAR: alpha
+      - name: solo-changed2
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
+        command: sleep infinity
+        network:
+          - testnet.network
+        env_as_file:
+          SOLO_VAR2: initial
       - name: solo-unchanged
         image: "{{ _test_image }}"
         tag: "{{ _test_tag }}"
@@ -78,6 +86,14 @@
           - testnet.network
         env_as_file:
           SOLO_VAR: gamma # CHANGED from 'alpha'
+      - name: solo-changed2
+        image: "{{ _test_image }}"
+        tag: "{{ _test_tag }}"
+        command: sleep infinity
+        network:
+          - testnet.network
+        env_as_file:
+          SOLO_VAR2: modified # CHANGED from 'initial'
       - name: solo-unchanged
         image: "{{ _test_image }}"
         tag: "{{ _test_tag }}"
@@ -123,6 +139,7 @@
           - "'pod-web' in run1_ids"
           - "'pod-worker' in run1_ids"
           - "'solo-changed' in run1_ids"
+          - "'solo-changed2' in run1_ids"
           - "'solo-unchanged' in run1_ids"
         fail_msg: "Not all containers started. Found: {{ run1_ids.keys() | list }}"
 
@@ -161,6 +178,7 @@
           - "run2_ids['pod-web'] == run1_ids['pod-web']"
           - "run2_ids['pod-worker'] == run1_ids['pod-worker']"
           - "run2_ids['solo-changed'] == run1_ids['solo-changed']"
+          - "run2_ids['solo-changed2'] == run1_ids['solo-changed2']"
           - "run2_ids['solo-unchanged'] == run1_ids['solo-unchanged']"
         fail_msg: >-
           Containers were unexpectedly restarted during idempotent run.
@@ -228,6 +246,17 @@
           Run 2 ID: {{ run2_ids['solo-changed'] }}
           Run 3 ID: {{ run3_ids['solo-changed'] }}
 
+    # Standalone: solo-changed2 should also have a new ID
+    - name: "ASSERT RUN 3: solo-changed2 restarted (env changed)"
+      ansible.builtin.assert:
+        that:
+          - "run3_ids['solo-changed2'] != run2_ids['solo-changed2']"
+        fail_msg: >-
+          solo-changed2 should have been restarted (new container ID)
+          because its environment variables changed.
+          Run 2 ID: {{ run2_ids['solo-changed2'] }}
+          Run 3 ID: {{ run3_ids['solo-changed2'] }}
+
     # Standalone: solo-unchanged should have the SAME ID
     - name: "ASSERT RUN 3: solo-unchanged NOT restarted (env unchanged)"
       ansible.builtin.assert:
@@ -265,6 +294,20 @@
         fail_msg: >-
           solo-changed should see SOLO_VAR=gamma after restart.
           Actual env: {{ solo_env.stdout }}
+
+    # Verify solo-changed2 sees new env var
+    - name: Check solo-changed2 sees new env var
+      ansible.builtin.command: podman exec solo-changed2 env
+      register: solo2_env
+      changed_when: false
+
+    - name: "ASSERT RUN 3: solo-changed2 has updated SOLO_VAR2"
+      ansible.builtin.assert:
+        that:
+          - "'SOLO_VAR2=modified' in solo2_env.stdout"
+        fail_msg: >-
+          solo-changed2 should see SOLO_VAR2=modified after restart.
+          Actual env: {{ solo2_env.stdout }}
 
     # Verify unchanged container still has original env
     - name: Check solo-unchanged still has original env var
