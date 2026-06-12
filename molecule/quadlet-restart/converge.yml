@@ -1,8 +1,8 @@
 ---
 # Custom converge playbook that runs the role THREE times to test restart behavior:
-#   Run 1: Initial deployment (everything starts)
+#   Run 1: Initial deployment with build repo v1.0.0 (everything starts)
 #   Run 2: Same variables (nothing should restart - idempotent)
-#   Run 3: Changed env vars on selected containers (only affected containers/pods restart)
+#   Run 3: Changed git version to master (triggers image rebuild, all containers restart)
 - name: Converge - test restart behavior
   hosts: all
   gather_facts: true
@@ -12,7 +12,6 @@
     _podman_user: root
     _podman_user_home: /root
     _podman_use_quadlets: true
-    _podman_build_repos: []
     _podman_networks:
       - name: testnet
     _podman_pods:
@@ -20,96 +19,124 @@
         network:
           - testnet.network
 
-    # Use Amazon ECR Public Gallery to avoid Docker Hub rate limits.
-    # ECR Public has no rate limits and provides the same Alpine image.
-    _test_image: public.ecr.aws/docker/library/alpine
-    _test_tag: latest
+    # Build repo that has multiple versions (v1.0.0 and master)
+    # We'll delete the repo between runs to force a rebuild
+    _podman_build_repos_v1:
+      - repo: https://github.com/crccheck/docker-hello-world.git
+        version: v1.0.0
+        dest_dir: /root/docker-hello-world
+        image_name: hello-world
+    _podman_build_repos_v2:
+      - repo: https://github.com/crccheck/docker-hello-world.git
+        version: master
+        dest_dir: /root/docker-hello-world
+        image_name: hello-world
 
-    # Container definitions for initial deployment (runs 1 & 2)
+    # Podman format string for container IDs (escaped for Jinja2)
+    _podman_ps_format: "{{ '{{' }}.Names{{ '}}' }}|{{ '{{' }}.ID{{ '}}' }}"
+
+    # Container definitions - multiple containers use the built image
+    # to test that ALL are restarted when the image is rebuilt.
     _initial_containers:
+      # Pod members using the built image
       - name: pod-web
-        image: "{{ _test_image }}"
-        tag: "{{ _test_tag }}"
+        image: localhost/hello-world
+        tag: latest
         pod: testpod
         command: sleep infinity
       - name: pod-worker
-        image: "{{ _test_image }}"
-        tag: "{{ _test_tag }}"
+        image: localhost/hello-world
+        tag: latest
         pod: testpod
         command: sleep infinity
         env_as_file:
           WORKER_MODE: batch
-      - name: solo-changed
-        image: "{{ _test_image }}"
-        tag: "{{ _test_tag }}"
+      # 7 standalone containers using the built image (to match the bug report)
+      - name: app1
+        image: localhost/hello-world
+        tag: latest
         command: sleep infinity
         network:
           - testnet.network
-        env_as_file:
-          SOLO_VAR: alpha
+      - name: app2
+        image: localhost/hello-world
+        tag: latest
+        command: sleep infinity
+        network:
+          - testnet.network
+      - name: app3
+        image: localhost/hello-world
+        tag: latest
+        command: sleep infinity
+        network:
+          - testnet.network
+      - name: app4
+        image: localhost/hello-world
+        tag: latest
+        command: sleep infinity
+        network:
+          - testnet.network
+      - name: app5
+        image: localhost/hello-world
+        tag: latest
+        command: sleep infinity
+        network:
+          - testnet.network
+      - name: app6
+        image: localhost/hello-world
+        tag: latest
+        command: sleep infinity
+        network:
+          - testnet.network
+      - name: app7
+        image: localhost/hello-world
+        tag: latest
+        command: sleep infinity
+        network:
+          - testnet.network
+      # A container using a different image (should NOT restart on build repo change)
       - name: solo-unchanged
-        image: "{{ _test_image }}"
-        tag: "{{ _test_tag }}"
+        image: public.ecr.aws/docker/library/alpine
+        tag: latest
         command: sleep infinity
         network:
           - testnet.network
         env_as_file:
           SOLO_VAR: beta
 
-    # Container definitions with modified env vars (run 3)
-    _modified_containers:
-      - name: pod-web
-        image: "{{ _test_image }}"
-        tag: "{{ _test_tag }}"
-        pod: testpod
-        command: sleep infinity
-      - name: pod-worker
-        image: "{{ _test_image }}"
-        tag: "{{ _test_tag }}"
-        pod: testpod
-        command: sleep infinity
-        env_as_file:
-          WORKER_MODE: stream # CHANGED from 'batch'
-      - name: solo-changed
-        image: "{{ _test_image }}"
-        tag: "{{ _test_tag }}"
-        command: sleep infinity
-        network:
-          - testnet.network
-        env_as_file:
-          SOLO_VAR: gamma # CHANGED from 'alpha'
-      - name: solo-unchanged
-        image: "{{ _test_image }}"
-        tag: "{{ _test_tag }}"
-        command: sleep infinity
-        network:
-          - testnet.network
-        env_as_file:
-          SOLO_VAR: beta # UNCHANGED
+    # Same containers for run 3 (just different git version)
+    _modified_containers: "{{ _initial_containers }}"
+
+  pre_tasks:
+    - name: Ensure podman system service is running
+      ansible.builtin.systemd:
+        name: podman
+        state: started
+        scope: system
+      failed_when: false
 
   tasks:
-    ############################################################
-    # RUN 1: Initial deployment - everything starts fresh
-    ############################################################
-    - name: "RUN 1: Initial deployment"
+    # ==================== RUN 1: Initial deployment ====================
+    - name: "RUN 1: Initial deployment with build repo v1.0.0"
       ansible.builtin.include_role:
         name: caktus.podman_containers
       vars:
         podman_user: "{{ _podman_user }}"
         podman_user_home: "{{ _podman_user_home }}"
         podman_use_quadlets: "{{ _podman_use_quadlets }}"
-        podman_build_repos: "{{ _podman_build_repos }}"
+        podman_build_repos: "{{ _podman_build_repos_v1 }}"
         podman_networks: "{{ _podman_networks }}"
         podman_pods: "{{ _podman_pods }}"
         podman_containers: "{{ _initial_containers }}"
 
     - name: Wait for containers to stabilize after run 1
-      ansible.builtin.pause:
-        seconds: 5
+      ansible.builtin.wait_for:
+        timeout: 5
+      changed_when: false
 
     - name: Get container IDs after run 1
       ansible.builtin.command: >
-        podman ps --no-trunc --format "{{ '{{' }}.Names{{ '}}' }}|{{ '{{' }}.ID{{ '}}' }}"
+        podman ps --no-trunc --format "{{ _podman_ps_format }}"
       register: run1_ps
       changed_when: false
 
@@ -117,37 +144,27 @@
       ansible.builtin.set_fact:
         run1_ids: "{{ dict(run1_ps.stdout_lines | map('split', '|')) }}"
 
-    - name: "ASSERT RUN 1: All containers started"
-      ansible.builtin.assert:
-        that:
-          - "'pod-web' in run1_ids"
-          - "'pod-worker' in run1_ids"
-          - "'solo-changed' in run1_ids"
-          - "'solo-unchanged' in run1_ids"
-        fail_msg: "Not all containers started. Found: {{ run1_ids.keys() | list }}"
-
-    ############################################################
-    # RUN 2: Idempotent run - nothing should change
-    ############################################################
-    - name: "RUN 2: Idempotent run (same variables)"
+    # ==================== RUN 2: Idempotent run ====================
+    - name: "RUN 2: Idempotent run with same variables"
       ansible.builtin.include_role:
         name: caktus.podman_containers
       vars:
         podman_user: "{{ _podman_user }}"
         podman_user_home: "{{ _podman_user_home }}"
         podman_use_quadlets: "{{ _podman_use_quadlets }}"
-        podman_build_repos: "{{ _podman_build_repos }}"
+        podman_build_repos: "{{ _podman_build_repos_v1 }}"
         podman_networks: "{{ _podman_networks }}"
         podman_pods: "{{ _podman_pods }}"
         podman_containers: "{{ _initial_containers }}"
 
     - name: Wait for containers to stabilize after run 2
-      ansible.builtin.pause:
-        seconds: 3
+      ansible.builtin.wait_for:
+        timeout: 5
+      changed_when: false
 
     - name: Get container IDs after run 2
       ansible.builtin.command: >
-        podman ps --no-trunc --format "{{ '{{' }}.Names{{ '}}' }}|{{ '{{' }}.ID{{ '}}' }}"
+        podman ps --no-trunc --format "{{ _podman_ps_format }}"
       register: run2_ps
       changed_when: false
 
@@ -155,40 +172,34 @@
       ansible.builtin.set_fact:
         run2_ids: "{{ dict(run2_ps.stdout_lines | map('split', '|')) }}"
 
-    - name: "ASSERT RUN 2: No containers restarted (idempotent)"
-      ansible.builtin.assert:
-        that:
-          - "run2_ids['pod-web'] == run1_ids['pod-web']"
-          - "run2_ids['pod-worker'] == run1_ids['pod-worker']"
-          - "run2_ids['solo-changed'] == run1_ids['solo-changed']"
-          - "run2_ids['solo-unchanged'] == run1_ids['solo-unchanged']"
-        fail_msg: >-
-          Containers were unexpectedly restarted during idempotent run.
-          Run 1 IDs: {{ run1_ids }}
-          Run 2 IDs: {{ run2_ids }}
+    # ==================== RUN 3: Changed git version ====================
+    # Delete the git repo to force a re-clone (which reports changed=true)
+    # This triggers a rebuild of the image
+    - name: Delete git repo to force rebuild
+      ansible.builtin.file:
+        path: /root/docker-hello-world
+        state: absent
 
-    ############################################################
-    # RUN 3: Changed env vars - selective restarts expected
-    ############################################################
-    - name: "RUN 3: Deploy with changed environment variables"
+    - name: "RUN 3: Deploy with changed git version (v1.0.0 -> master)"
       ansible.builtin.include_role:
         name: caktus.podman_containers
       vars:
         podman_user: "{{ _podman_user }}"
         podman_user_home: "{{ _podman_user_home }}"
         podman_use_quadlets: "{{ _podman_use_quadlets }}"
-        podman_build_repos: "{{ _podman_build_repos }}"
+        podman_build_repos: "{{ _podman_build_repos_v2 }}"
         podman_networks: "{{ _podman_networks }}"
         podman_pods: "{{ _podman_pods }}"
         podman_containers: "{{ _modified_containers }}"
 
     - name: Wait for containers to stabilize after run 3
-      ansible.builtin.pause:
-        seconds: 5
+      ansible.builtin.wait_for:
+        timeout: 5
+      changed_when: false
 
     - name: Get container IDs after run 3
       ansible.builtin.command: >
-        podman ps --no-trunc --format "{{ '{{' }}.Names{{ '}}' }}|{{ '{{' }}.ID{{ '}}' }}"
+        podman ps --no-trunc --format "{{ _podman_ps_format }}"
       register: run3_ps
       changed_when: false
 
@@ -196,86 +207,132 @@
       ansible.builtin.set_fact:
         run3_ids: "{{ dict(run3_ps.stdout_lines | map('split', '|')) }}"
 
-    # Pod containers should have new IDs (pod restarted because pod-worker changed)
-    - name: "ASSERT RUN 3: pod-worker restarted (env changed)"
+    # ==================== ASSERTIONS ====================
+
+    # Run 1: All containers should be started
+    - name: "ASSERT RUN 1: All containers started"
       ansible.builtin.assert:
         that:
-          - "run3_ids['pod-worker'] != run2_ids['pod-worker']"
-        fail_msg: >-
-          pod-worker should have been restarted (new container ID) because
-          its environment variables changed.
-          Run 2 ID: {{ run2_ids['pod-worker'] }}
-          Run 3 ID: {{ run3_ids['pod-worker'] }}
+          - "'pod-web' in run1_ids"
+          - "'pod-worker' in run1_ids"
+          - "'app1' in run1_ids"
+          - "'app2' in run1_ids"
+          - "'app3' in run1_ids"
+          - "'app4' in run1_ids"
+          - "'app5' in run1_ids"
+          - "'app6' in run1_ids"
+          - "'app7' in run1_ids"
+          - "'solo-unchanged' in run1_ids"
+        fail_msg: "Not all containers started in run 1"
 
-    - name: "ASSERT RUN 3: pod-web restarted (pod restarted due to pod-worker change)"
+    # Run 2: No containers should have restarted (idempotent)
+    - name: "ASSERT RUN 2: No containers restarted (idempotent)"
+      ansible.builtin.assert:
+        that:
+          - "run2_ids['pod-web'] == run1_ids['pod-web']"
+          - "run2_ids['pod-worker'] == run1_ids['pod-worker']"
+          - "run2_ids['app1'] == run1_ids['app1']"
+          - "run2_ids['app2'] == run1_ids['app2']"
+          - "run2_ids['app3'] == run1_ids['app3']"
+          - "run2_ids['app4'] == run1_ids['app4']"
+          - "run2_ids['app5'] == run1_ids['app5']"
+          - "run2_ids['app6'] == run1_ids['app6']"
+          - "run2_ids['app7'] == run1_ids['app7']"
+          - "run2_ids['solo-unchanged'] == run1_ids['solo-unchanged']"
+        fail_msg: >-
+          Some containers restarted in run 2 (should be idempotent).
+          Run 1 IDs: {{ run1_ids }}
+          Run 2 IDs: {{ run2_ids }}
+
+    # Run 3: All containers using the built image should have restarted
+    - name: "ASSERT RUN 3: app1 restarted (image rebuilt)"
+      ansible.builtin.assert:
+        that:
+          - "run3_ids['app1'] != run2_ids['app1']"
+        fail_msg: >-
+          app1 should have been restarted (image rebuilt).
+          Run 2 ID: {{ run2_ids['app1'] }}
+          Run 3 ID: {{ run3_ids['app1'] }}
+
+    - name: "ASSERT RUN 3: app2 restarted (image rebuilt)"
+      ansible.builtin.assert:
+        that:
+          - "run3_ids['app2'] != run2_ids['app2']"
+        fail_msg: >-
+          app2 should have been restarted (image rebuilt).
+          Run 2 ID: {{ run2_ids['app2'] }}
+          Run 3 ID: {{ run3_ids['app2'] }}
+
+    - name: "ASSERT RUN 3: app3 restarted (image rebuilt)"
+      ansible.builtin.assert:
+        that:
+          - "run3_ids['app3'] != run2_ids['app3']"
+        fail_msg: >-
+          app3 should have been restarted (image rebuilt).
+          Run 2 ID: {{ run2_ids['app3'] }}
+          Run 3 ID: {{ run3_ids['app3'] }}
+
+    - name: "ASSERT RUN 3: app4 restarted (image rebuilt)"
+      ansible.builtin.assert:
+        that:
+          - "run3_ids['app4'] != run2_ids['app4']"
+        fail_msg: >-
+          app4 should have been restarted (image rebuilt).
+          Run 2 ID: {{ run2_ids['app4'] }}
+          Run 3 ID: {{ run3_ids['app4'] }}
+
+    - name: "ASSERT RUN 3: app5 restarted (image rebuilt)"
+      ansible.builtin.assert:
+        that:
+          - "run3_ids['app5'] != run2_ids['app5']"
+        fail_msg: >-
+          app5 should have been restarted (image rebuilt).
+          Run 2 ID: {{ run2_ids['app5'] }}
+          Run 3 ID: {{ run3_ids['app5'] }}
+
+    - name: "ASSERT RUN 3: app6 restarted (image rebuilt)"
+      ansible.builtin.assert:
+        that:
+          - "run3_ids['app6'] != run2_ids['app6']"
+        fail_msg: >-
+          app6 should have been restarted (image rebuilt).
+          Run 2 ID: {{ run2_ids['app6'] }}
+          Run 3 ID: {{ run3_ids['app6'] }}
+
+    - name: "ASSERT RUN 3: app7 restarted (image rebuilt)"
+      ansible.builtin.assert:
+        that:
+          - "run3_ids['app7'] != run2_ids['app7']"
+        fail_msg: >-
+          app7 should have been restarted (image rebuilt).
+          Run 2 ID: {{ run2_ids['app7'] }}
+          Run 3 ID: {{ run3_ids['app7'] }}
+
+    # Pod members should also restart (pod restarts due to member image rebuild)
+    - name: "ASSERT RUN 3: pod-web restarted (pod restarted due to image rebuild)"
       ansible.builtin.assert:
         that:
           - "run3_ids['pod-web'] != run2_ids['pod-web']"
         fail_msg: >-
-          pod-web should have been restarted (new container ID) because
-          the pod was restarted due to pod-worker's env change.
+          pod-web should have been restarted (pod restarted due to image rebuild).
           Run 2 ID: {{ run2_ids['pod-web'] }}
           Run 3 ID: {{ run3_ids['pod-web'] }}
 
-    # Standalone: solo-changed should have a new ID
-    - name: "ASSERT RUN 3: solo-changed restarted (env changed)"
+    - name: "ASSERT RUN 3: pod-worker restarted (pod restarted due to image rebuild)"
       ansible.builtin.assert:
         that:
-          - "run3_ids['solo-changed'] != run2_ids['solo-changed']"
+          - "run3_ids['pod-worker'] != run2_ids['pod-worker']"
         fail_msg: >-
-          solo-changed should have been restarted (new container ID)
-          because its environment variables changed.
-          Run 2 ID: {{ run2_ids['solo-changed'] }}
-          Run 3 ID: {{ run3_ids['solo-changed'] }}
+          pod-worker should have been restarted (pod restarted due to image rebuild).
+          Run 2 ID: {{ run2_ids['pod-worker'] }}
+          Run 3 ID: {{ run3_ids['pod-worker'] }}
 
-    # Standalone: solo-unchanged should have the SAME ID
-    - name: "ASSERT RUN 3: solo-unchanged NOT restarted (env unchanged)"
+    # Container using a different image should NOT restart
+    - name: "ASSERT RUN 3: solo-unchanged NOT restarted (different image)"
       ansible.builtin.assert:
         that:
           - "run3_ids['solo-unchanged'] == run2_ids['solo-unchanged']"
         fail_msg: >-
-          solo-unchanged should NOT have been restarted because its
-          environment variables did not change.
+          solo-unchanged should NOT have been restarted (uses different image).
           Run 2 ID: {{ run2_ids['solo-unchanged'] }}
           Run 3 ID: {{ run3_ids['solo-unchanged'] }}
-
-    # Verify new env vars are visible inside restarted containers
-    - name: Check pod-worker sees new env var
-      ansible.builtin.command: podman exec pod-worker env
-      register: worker_env
-      changed_when: false
-
-    - name: "ASSERT RUN 3: pod-worker has updated WORKER_MODE"
-      ansible.builtin.assert:
-        that:
-          - "'WORKER_MODE=stream' in worker_env.stdout"
-        fail_msg: >-
-          pod-worker should see WORKER_MODE=stream after restart.
-          Actual env: {{ worker_env.stdout }}
-
-    - name: Check solo-changed sees new env var
-      ansible.builtin.command: podman exec solo-changed env
-      register: solo_env
-      changed_when: false
-
-    - name: "ASSERT RUN 3: solo-changed has updated SOLO_VAR"
-      ansible.builtin.assert:
-        that:
-          - "'SOLO_VAR=gamma' in solo_env.stdout"
-        fail_msg: >-
-          solo-changed should see SOLO_VAR=gamma after restart.
-          Actual env: {{ solo_env.stdout }}
-
-    # Verify unchanged container still has original env
-    - name: Check solo-unchanged still has original env var
-      ansible.builtin.command: podman exec solo-unchanged env
-      register: unchanged_env
-      changed_when: false
-
-    - name: "ASSERT RUN 3: solo-unchanged has original SOLO_VAR"
-      ansible.builtin.assert:
-        that:
-          - "'SOLO_VAR=beta' in unchanged_env.stdout"
-        fail_msg: >-
-          solo-unchanged should still see SOLO_VAR=beta (was not restarted).
-          Actual env: {{ unchanged_env.stdout }}

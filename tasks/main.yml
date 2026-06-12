@@ -387,14 +387,43 @@
     enabled: true
     state: "{{ (item.changed or pod_containers_changed) | ternary('restarted', 'started') }}"
   vars:
+    # List of image names that were rebuilt in this run (normalized: no registry prefix)
+    rebuilt_images: "{{ image_build.results | selectattr('changed', 'equalto', true) | map(attribute='item.0.image_name') | map('regex_replace', '^[^/]+/', '') | list }}"
+    # Containers in this pod that changed (quadlet file changed OR image rebuilt)
     pod_containers_changed: >-
       {{
-        container.results
-        | selectattr('item.pod', 'defined')
-        | selectattr('item.pod', 'equalto', item.item.name)
-        | selectattr('changed', 'equalto', true)
-        | list
-        | length > 0
+        (container.results
+         | selectattr('item.pod', 'defined')
+         | selectattr('item.pod', 'equalto', item.item.name)
+         | selectattr('changed', 'equalto', true)
+         | list
+         | length)
+        +
+        (container.results
+         | selectattr('item.pod', 'defined')
+         | selectattr('item.pod', 'equalto', item.item.name + '.pod')
+         | selectattr('changed', 'equalto', true)
+         | list
+         | length)
+        +
+        (container.results
+         | selectattr('item.pod', 'defined')
+         | selectattr('item.pod', 'equalto', item.item.name)
+         | map(attribute='item.image')
+         | map('regex_replace', '^[^/]+/', '')
+         | select('in', rebuilt_images)
+         | list
+         | length)
+        +
+        (container.results
+         | selectattr('item.pod', 'defined')
+         | selectattr('item.pod', 'equalto', item.item.name + '.pod')
+         | map(attribute='item.image')
+         | map('regex_replace', '^[^/]+/', '')
+         | select('in', rebuilt_images)
+         | list
+         | length)
+        > 0
       }}
   loop: "{{ pod.results }}"
   loop_control:
@@ -407,7 +436,12 @@
     name: "{{ podman_use_quadlets | ternary(item.item.name ~ '.service', 'container-' ~ item.item.name) }}"
     scope: user
     enabled: true
-    state: "{{ item.changed | ternary('restarted', 'started') }}"
+    state: "{{ (item.changed or image_restarted) | ternary('restarted', 'started') }}"
+  vars:
+    # List of image names that were rebuilt in this run (normalized: no registry prefix)
+    rebuilt_images: "{{ image_build.results | selectattr('changed', 'equalto', true) | map(attribute='item.0.image_name') | map('regex_replace', '^[^/]+/', '') | list }}"
+    # Check if this container's image (normalized) matches any rebuilt image
+    image_restarted: "{{ item.item.image | regex_replace('^[^/]+/', '') in rebuilt_images }}"
   loop: "{{ container.results }}"
   loop_control:
     label: "{{ item.item.name }}"
