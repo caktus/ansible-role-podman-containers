@@ -52,6 +52,7 @@ jobs:
           - quadlet-container-hostname
           - quadlet-restart
           - podman49-logging
+          - traefik-labels
     steps:
       - name: Checkout
         uses: actions/checkout@v4

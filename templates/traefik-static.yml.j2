@@ -1,0 +1,68 @@
+{% set config = {} %}
+{% set _api = {"insecure": true} %}
+{% set _accessLog = {"filePath": "/dev/stdout", "format": "json"} %}
+{% set _entryPoints = {
+  "web": {
+    "address": ":80",
+    "http": {
+      "redirections": {
+        "entryPoint": {
+          "to": "websecure",
+          "scheme": "https",
+          "permanent": true
+        }
+      }
+    }
+  },
+  "websecure": {
+    "address": ":443",
+    "forwardedHeaders": {
+      "trustedIPs": ["127.0.0.1/32", "10.0.0.0/8"]
+    },
+    "http": {
+      "tls": {}
+    }
+  },
+  "traefik": {
+    "address": "127.0.0.1:8080"
+  }
+} %}
+{% set _providers = {
+  "docker": {
+    "endpoint": "tcp://socket-proxy:2375",
+    "exposedByDefault": false,
+    "watch": true
+  },
+  "file": {
+    "filename": "/etc/traefik/middlewares.yaml",
+    "watch": false
+  }
+} %}
+{% set _log = {"level": podman_traefik_log_level} %}
+{% set config = config | combine({
+  "api": _api,
+  "accessLog": _accessLog,
+  "entryPoints": _entryPoints,
+  "providers": _providers,
+  "log": _log
+}) %}
+{% if podman_traefik_acme_email %}
+{% set _certResolvers = {
+  "certificatesResolvers": {
+    "letsencrypt": {
+      "acme": {
+        "email": podman_traefik_acme_email,
+        "storage": podman_traefik_acme_storage,
+        "httpChallenge": {
+          "entryPoint": "web"
+        }
+      }
+    }
+  }
+} %}
+{% set config = config | combine(_certResolvers) %}
+{% endif %}
+{% if podman_traefik_extra_static_config %}
+{% set config = config | combine(podman_traefik_extra_static_config, recursive=True) %}
+{% endif %}
+{{ config | to_nice_yaml(indent=2) }}

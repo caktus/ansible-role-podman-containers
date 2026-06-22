@@ -1,0 +1,217 @@
+---
+- name: Verify Traefik labels scenario
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    # ------------------------------------------------------------------
+    # Verify socket unit files
+    # ------------------------------------------------------------------
+    - name: Check http.socket file exists
+      ansible.builtin.stat:
+        path: /root/.config/systemd/user/http.socket
+      register: http_socket_file
+
+    - name: Assert http.socket file was created
+      ansible.builtin.assert:
+        that: http_socket_file.stat.exists
+        fail_msg: "http.socket file not found."
+
+    - name: Read http.socket file
+      ansible.builtin.slurp:
+        src: /root/.config/systemd/user/http.socket
+      register: http_socket_content
+
+    - name: Assert http.socket has correct content
+      ansible.builtin.assert:
+        that:
+          - "'FileDescriptorName=web' in http_socket_content.content | b64decode"
+          - "'ListenStream=8080' in http_socket_content.content | b64decode"
+          - "'Service=traefik.service' in http_socket_content.content | b64decode"
+        fail_msg: "http.socket content is incorrect: {{ http_socket_content.content | b64decode }}"
+
+    - name: Check https.socket file exists
+      ansible.builtin.stat:
+        path: /root/.config/systemd/user/https.socket
+      register: https_socket_file
+
+    - name: Assert https.socket file was created
+      ansible.builtin.assert:
+        that: https_socket_file.stat.exists
+        fail_msg: "https.socket file not found."
+
+    - name: Read https.socket file
+      ansible.builtin.slurp:
+        src: /root/.config/systemd/user/https.socket
+      register: https_socket_content
+
+    - name: Assert https.socket has correct content
+      ansible.builtin.assert:
+        that:
+          - "'FileDescriptorName=websecure' in https_socket_content.content | b64decode"
+          - "'ListenStream=8443' in https_socket_content.content | b64decode"
+          - "'Service=traefik.service' in https_socket_content.content | b64decode"
+        fail_msg: "https.socket content is incorrect: {{ https_socket_content.content | b64decode }}"
+
+    # ------------------------------------------------------------------
+    # Verify Traefik config files
+    # ------------------------------------------------------------------
+    - name: Check Traefik config directory exists
+      ansible.builtin.stat:
+        path: /root/traefik
+      register: traefik_dir
+
+    - name: Assert Traefik config directory was created
+      ansible.builtin.assert:
+        that: traefik_dir.stat.isdir
+        fail_msg: "Traefik config directory not found."
+
+    - name: Check Traefik ACME directory exists
+      ansible.builtin.stat:
+        path: /root/traefik/acme
+      register: acme_dir
+
+    - name: Assert Traefik ACME directory was created
+      ansible.builtin.assert:
+        that:
+          - acme_dir.stat.isdir
+          - acme_dir.stat.mode == '0700'
+        fail_msg: "Traefik ACME directory not found or wrong permissions."
+
+    - name: Read Traefik static config
+      ansible.builtin.slurp:
+        src: /root/traefik/traefik.yaml
+      register: traefik_static
+
+    - name: Assert Traefik static config has expected content
+      ansible.builtin.assert:
+        that:
+          - "'entryPoints' in traefik_static.content | b64decode"
+          - "'web' in traefik_static.content | b64decode"
+          - "'websecure' in traefik_static.content | b64decode"
+          - "'traefik' in traefik_static.content | b64decode"
+          - "'127.0.0.1:8080' in traefik_static.content | b64decode"
+          - "'tcp://socket-proxy:2375' in traefik_static.content | b64decode"
+          - "'middlewares.yaml' in traefik_static.content | b64decode"
+          - "'DEBUG' in traefik_static.content | b64decode"
+          # No ACME section when email is empty
+          - "'certificatesResolvers' not in traefik_static.content | b64decode"
+        fail_msg: "Traefik static config content is incorrect."
+
+    - name: Read Traefik middlewares config
+      ansible.builtin.slurp:
+        src: /root/traefik/middlewares.yaml
+      register: traefik_middlewares
+
+    - name: Assert middlewares config has expected content
+      ansible.builtin.assert:
+        that:
+          - "'compress' in traefik_middlewares.content | b64decode"
+          - "'security-headers' in traefik_middlewares.content | b64decode"
+          - "'rate-limit' in traefik_middlewares.content | b64decode"
+          - "'stsSeconds' in traefik_middlewares.content | b64decode"
+          - "'minResponseBodyBytes' in traefik_middlewares.content | b64decode"
+        fail_msg: "Traefik middlewares config content is incorrect."
+
+    # ------------------------------------------------------------------
+    # Verify quadlet files
+    # ------------------------------------------------------------------
+    - name: Find quadlet files
+      ansible.builtin.find:
+        paths: /root/.config/containers/systemd
+        patterns:
+          - "*.container"
+          - "*.network"
+      register: quadlet_files
+
+    - name: Assert expected quadlet files exist
+      ansible.builtin.assert:
+        that:
+          - "'traefik.container' in quadlet_files.files | map(attribute='path') | map('basename') | list"
+          - "'socket-proxy.container' in quadlet_files.files | map(attribute='path') | map('basename') | list"
+          - "'whoami.container' in quadlet_files.files | map(attribute='path') | map('basename') | list"
+          - "'app.network' in quadlet_files.files | map(attribute='path') | map('basename') | list"
+        fail_msg: >-
+          Expected quadlet files for traefik, socket-proxy, whoami, and app network.
+          Found: {{ quadlet_files.files | map(attribute='path') | map('basename') | list }}
+
+    - name: Read traefik.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/traefik.container
+      register: traefik_quadlet
+
+    - name: Assert traefik quadlet has correct content
+      ansible.builtin.assert:
+        that:
+          - "'ContainerName=traefik' in traefik_quadlet.content | b64decode"
+          - "'traefik.yaml:/etc/traefik/traefik.yaml' in traefik_quadlet.content | b64decode"
+          - "'middlewares.yaml:/etc/traefik/middlewares.yaml' in traefik_quadlet.content | b64decode"
+          - "'acme:/etc/traefik/acme' in traefik_quadlet.content | b64decode"
+          - "'After=http.socket https.socket' in traefik_quadlet.content | b64decode"
+          - "'Requires=http.socket https.socket' in traefik_quadlet.content | b64decode"
+        fail_msg: "traefik.container quadlet content is incorrect: {{ traefik_quadlet.content | b64decode }}"
+
+    - name: Read whoami.container quadlet file
+      ansible.builtin.slurp:
+        src: /root/.config/containers/systemd/whoami.container
+      register: whoami_quadlet
+
+    - name: Assert whoami quadlet has Traefik labels
+      ansible.builtin.assert:
+        that:
+          - "'Label=traefik.enable=true' in whoami_quadlet.content | b64decode"
+          - "'traefik.http.routers.whoami.rule=PathPrefix' in whoami_quadlet.content | b64decode"
+          - "'Label=traefik.http.services.whoami.loadbalancer.server.port=80' in whoami_quadlet.content | b64decode"
+          - "'Label=app.role=whoami' in whoami_quadlet.content | b64decode"
+        fail_msg: "whoami.container quadlet labels are incorrect: {{ whoami_quadlet.content | b64decode }}"
+
+    # ------------------------------------------------------------------
+    # Verify socket units are active
+    # ------------------------------------------------------------------
+    - name: Verify http.socket is active
+      ansible.builtin.command:
+        cmd: systemctl --user is-active http.socket
+      changed_when: false
+      register: http_socket_active
+
+    - name: Assert http.socket is active
+      ansible.builtin.assert:
+        that: http_socket_active.stdout == 'active'
+        fail_msg: "http.socket is not active: {{ http_socket_active.stdout }}"
+
+    - name: Verify https.socket is active
+      ansible.builtin.command:
+        cmd: systemctl --user is-active https.socket
+      changed_when: false
+      register: https_socket_active
+
+    - name: Assert https.socket is active
+      ansible.builtin.assert:
+        that: https_socket_active.stdout == 'active'
+        fail_msg: "https.socket is not active: {{ https_socket_active.stdout }}"
+
+    # ------------------------------------------------------------------
+    # Verify containers are running
+    # ------------------------------------------------------------------
+    - name: Get running containers
+      ansible.builtin.command: podman ps --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: containers
+      changed_when: false
+
+    - name: Assert traefik container is running
+      ansible.builtin.assert:
+        that:
+          - "'traefik' in containers.stdout"
+        fail_msg: "traefik container not running. Running: {{ containers.stdout }}"
+
+    - name: Assert whoami container is running
+      ansible.builtin.assert:
+        that:
+          - "'whoami' in containers.stdout"
+        fail_msg: "whoami container not running. Running: {{ containers.stdout }}"
+
+    - name: Assert socket-proxy container is running
+      ansible.builtin.assert:
+        that:
+          - "'socket-proxy' in containers.stdout"
+        fail_msg: "socket-proxy container not running. Running: {{ containers.stdout }}"

@@ -1,0 +1,7 @@
+---
+- name: restart traefik
+  ansible.builtin.systemd:
+    name: traefik.service
+    scope: user
+    state: restarted
+  failed_when: false

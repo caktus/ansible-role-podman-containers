@@ -1,0 +1,15 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+
+  pre_tasks:
+    - name: Start Podman socket for container discovery (required by socket-proxy)
+      ansible.builtin.systemd:
+        name: podman.socket
+        scope: user
+        state: started
+        enabled: true
+
+  roles:
+    - role: caktus.podman_containers

@@ -1,0 +1,37 @@
+---
+- name: Create systemd socket unit files
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=Socket for {{ item.name }} (FileDescriptorName={{ item.fd_name }})
+
+      [Socket]
+      FileDescriptorName={{ item.fd_name }}
+      ListenStream={{ item.port }}
+      Service={{ item.service }}.service
+
+      [Install]
+      WantedBy=sockets.target
+    dest: "{{ podman_user_home }}/.config/systemd/user/{{ item.name }}.socket"
+    mode: "0644"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+  loop: "{{ podman_socket_units }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: socket_units_result
+
+- name: Reload systemd daemon for socket units
+  ansible.builtin.systemd:
+    scope: user
+    daemon_reload: true
+  when: socket_units_result is changed
+
+- name: Enable socket units
+  ansible.builtin.systemd:
+    name: "{{ item.name }}.socket"
+    scope: user
+    enabled: true
+  loop: "{{ podman_socket_units }}"
+  loop_control:
+    label: "{{ item.name }}"

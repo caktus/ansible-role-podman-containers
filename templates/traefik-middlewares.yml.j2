@@ -1,0 +1,36 @@
+{% set base_middlewares = {
+  "compress": {
+    "compress": {
+      "includedContentTypes": [
+        "text/html",
+        "text/plain",
+        "text/css",
+        "application/javascript",
+        "application/json",
+        "image/svg+xml"
+      ],
+      "minResponseBodyBytes": 1024
+    }
+  },
+  "security-headers": {
+    "headers": {
+      "stsSeconds": 63072000,
+      "stsIncludeSubdomains": true,
+      "stsPreload": true,
+      "frameDeny": true,
+      "contentTypeNosniff": true,
+      "browserXssFilter": true,
+      "referrerPolicy": "strict-origin-when-cross-origin"
+    }
+  },
+  "rate-limit": {
+    "rateLimit": {
+      "average": 100,
+      "burst": 200,
+      "period": "1s"
+    }
+  }
+} %}
+{% set middlewares = base_middlewares | combine(podman_traefik_middlewares, recursive=True) %}
+{% set config = {"http": {"middlewares": middlewares}} %}
+{{ config | to_nice_yaml(indent=2) }}

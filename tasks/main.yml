@@ -42,6 +42,14 @@
     mode: "0755"
   when: podman_use_quadlets
 
+- name: Configure Traefik
+  ansible.builtin.include_tasks: traefik.yml
+  when: podman_traefik_enabled | bool
+
+- name: Create systemd socket units
+  ansible.builtin.include_tasks: socket_activation.yml
+  when: podman_socket_units | length > 0
+
 - name: Manage container environment files
   when: podman_containers | selectattr('env_as_file', 'defined') | list | length > 0
   block:
@@ -379,6 +387,16 @@
   ansible.builtin.systemd:
     scope: user
     daemon_reload: true
+
+- name: Start socket units
+  ansible.builtin.systemd:
+    name: "{{ item.name }}.socket"
+    scope: user
+    state: started
+  loop: "{{ podman_socket_units }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: podman_socket_units | length > 0
 
 - name: (Re)start changed pod services
   ansible.builtin.systemd:
